@@ -67,6 +67,9 @@ def validate(node_platformio: Path | None = None) -> None:
         bytes.fromhex(vector["body_hex"]) + bytes.fromhex(vector["tag_hex"]))
     assert len(bytes.fromhex(vector["tag_hex"])) == 16
     assert (ROOT / "firmware/board/reference.h").exists()
+    print("NOTICE: shared factory carrier 915 MHz is for software compatibility only; "
+          "do not enable it for Indonesia LPWAN. Configure both endpoints to a "
+          "permitted 920-923 MHz carrier, e.g. 921 MHz, before TX.")
     print("PASS: gateway ESP32-C3 PlatformIO packages, wire contract and vector agree "
           "with pinned read-only S3 node reference")
 

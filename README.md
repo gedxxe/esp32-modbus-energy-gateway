@@ -45,6 +45,10 @@ python -m platformio run -e esp32c3
 
 To build the locally bundled dashboard, use Node.js 22 and run `npm ci`, `npm run build` and `npm test` inside `dashboard/`. The build regenerates `firmware/web/assets.h`; build the firmware **after** generating the dashboard. Normal firmware updates should not overwrite a device's archive partition. See [commissioning](docs/COMMISSIONING.md) before flashing or clearing flash.
 
+### Indonesia RF commissioning
+
+**Do not transmit on the shared 915 MHz software default at an Indonesian LPWAN installation.** The authoritative 2025 Indonesian LPWAN class-license table specifies 920–923 MHz and a 1% uplink/downlink duty cycle. Before enabling radio, use the existing local settings interfaces to configure the same authorized carrier (for example 921 MHz), bandwidth and PHY on the node and gateway; the node source repository is not changed. Antenna gain must be included in EIRP, and hardware certification remains necessary. See [Indonesia RF deployment checklist](docs/RF_COMPLIANCE_ID.md).
+
 ## Security and acceptance
 
 This is a local engineering installation, not an Internet-exposed service. The dashboard uses HTTP on a controlled AP and a temporary commissioning access code. At-rest flash encryption, a trusted gateway RTC, cloud synchronization and a managed multi-user login system are not provided. Host software tests and ESP32 compilation do not prove radio range, collision-free operation or accurate readings on a particular meter. The final acceptance procedure must include a real node, gateway and antenna installed at the intended locations. Repository hygiene checks are in `tools/security_audit.py`; local workstation paths, provisioning keys, compiled ELF files and temporary build output do not belong in Git.

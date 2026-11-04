@@ -45,6 +45,10 @@ python -m platformio run -e esp32c3
 
 Untuk membangun dashboard lokal, masuk ke direktori `dashboard/`, kemudian jalankan `npm ci`, `npm run build`, dan `npm test` dengan Node.js 22. Aset hasil build dimasukkan ke firmware melalui `firmware/web/assets.h`, sehingga firmware sebaiknya dikompilasi setelah dashboard dibangun. Jangan mengunggah filesystem image baru ke perangkat berisi arsip pengukuran tanpa memeriksa konsekuensi penghapusan datanya.
 
+### Frekuensi radio untuk Indonesia
+
+**Jangan langsung mengaktifkan transmitter pada frekuensi bawaan 915 MHz** untuk instalasi LPWAN di Indonesia. Dalam ketentuan izin kelas 2025, pita LPWAN tercantum pada 920–923 MHz dengan duty cycle maksimum 1% untuk uplink dan downlink. Atur frekuensi yang sama, misalnya 921 MHz, pada pengaturan lokal node dan gateway sebelum radio diaktifkan; repository node tidak perlu diubah. Daya EIRP termasuk pengaruh gain antena dan loss kabel, sehingga angka TX power di firmware saja tidak cukup untuk menyatakan alat patuh regulasi. Lihat [checklist RF Indonesia](docs/RF_COMPLIANCE_ID.md).
+
 ## Batasan implementasi
 
 Sistem ini dirancang sebagai alat monitoring lokal, bukan layanan yang dibuka langsung ke Internet. Autentikasi dashboard masih menggunakan kode commissioning, komunikasi web masih HTTP, dan gateway belum mempunyai RTC tepercaya ataupun integrasi database pusat. Uji kode dan simulasi paket bisa membuktikan konsistensi logika, tetapi belum menggantikan pengujian LoRa, pembacaan meter asli, serta jangkauan pada lingkungan pabrik. Lihat [panduan commissioning](docs/COMMISSIONING.md), [hasil verifikasi](docs/VERIFICATION.md), dan [aturan kebersihan repository](tools/security_audit.py) sebelum menerapkan build baru.
