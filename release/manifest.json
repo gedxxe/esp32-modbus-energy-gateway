@@ -176,7 +176,7 @@
     },
     {
       "path": "docs/VERIFICATION.md",
-      "sha256": "0efcfb47c8ca2e68f959e3dfd54e9693202fe068589b6656bba01fafadc9c646"
+      "sha256": "596bd227dbe9916041ece737832ffbfc18c754b29ae02ec2d8bba6dfa95c2269"
     },
     {
       "path": "docs/wiring-c3.csv",
@@ -364,7 +364,7 @@
     },
     {
       "path": "WORK_STATUS.md",
-      "sha256": "8e55a22087241dc62eab4319a60cd28550a496b53113f413681d9cfeec6b64bd"
+      "sha256": "7276ef0a2a83018fb8afc277cbcb62483116e181dd2b42dac2540e63e30a56a4"
     }
   ],
   "provisioning": "Preserve gw_nvs and archives on updates. littlefs.bin replaces archives and is first-provisioning only.",

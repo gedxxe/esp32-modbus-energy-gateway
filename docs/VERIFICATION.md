@@ -13,7 +13,7 @@ Date: **2026-11-04, Asia/Jakarta**. One owner: Codex. No physical ESP32/radio wa
 | `C:/Users/Lenovo/.platformio/penv/Scripts/platformio.exe run -e esp32c3` | Target build PASS; final size evidence below |
 | Same executable `run -e esp32c3 -t buildfs` | PASS: first-provisioning LittleFS image,1,966,080 bytes |
 | `python tools/check_flash_layout.py` | PASS: actual factory app0x20000,2 MiB capacity, no boot_app0 overlap, protected gw_nvs gap, filesystem size, no fixture packet/key text; blank inventory/key defaults tested in production C++ |
-| `python tools/package.py` then `--verify` | Release0.1.1:5 build artifacts and80 source files; ZIP entries/CRC, SHA256 and embedded manifest verification recorded in tracker |
+| `python tools/package.py` then `--verify` | Release0.1.1:5 build artifacts and81 source files; ZIP entries/CRC, SHA256 and embedded manifest verified; .gitattributes preserves bytes across Git clones |
 
 Native sources are the same `firmware/core/*.cpp` and `firmware/storage/*.cpp` compiled into firmware, with no replacement codec. MinGW6.3 host execution is used because sandbox execution causes a Windows DLL relocation error. Production HMAC is also independently checked against Python's implementation. Host tests do not emulate electrical SPI, RF, flash brownout timing or the HTTP server's ESP-IDF runtime.
 
