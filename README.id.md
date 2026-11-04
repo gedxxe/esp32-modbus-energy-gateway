@@ -1,41 +1,34 @@
-# Gateway LoRa Energy Station
+# Midea Engineering — Gateway Monitoring Daya LoRa
 
-[English](README.md) · [Commissioning](docs/COMMISSIONING.md) · [Kompatibilitas](docs/NODE_COMPATIBILITY.md) · [Tracker](WORK_STATUS.md)
+[English](README.md) · [Desain komunikasi dan penjadwalan](docs/RADIO_DESIGN.md) · [Persiapan perangkat](docs/COMMISSIONING.md) · [Kompatibilitas node](docs/NODE_COMPATIBILITY.md)
 
-Firmware gateway PTMP raw-LoRa pada repository terpisah, kompatibel dengan node `esp32-modbus-energy` firmware3.4.3 / protokol **Energy Station v1**, commit26c3a9429c8c4d410ef11a1b81e1e42f295034b1. Target pertama sesuai koreksi pemilik adalah **ESP32-C3**, memakai board referensi DevKitM-1 4 MB tanpa PSRAM dan SX1262 Ra-01SH V1.1. Model board fisik pengguna belum diketahui. Pin dan pilihan oscillator/RF switch dipisahkan dari protokol.
+Repository ini berisi firmware penerima untuk [node ESP32 pembaca power meter](https://github.com/gedxxe/esp32-modbus-energy). Pembacaan register Modbus, validasi data, serta perhitungan rasio PT dan CT tetap dilakukan pada node. Gateway ESP32-C3 bertugas menerima paket LoRa yang sudah terautentikasi, menyimpan data yang memang perlu diarsipkan, dan menyediakan halaman monitoring melalui jaringan lokal. Acuan format paketnya adalah **Energy Station protocol v1** yang digunakan firmware node, bukan format JSON atau HTTP yang dikirim langsung lewat radio.
 
-Implementasi mencakup codec/HMAC, inventori16 node, ACK prioritas dan fairness, gate airtime gateway1%, kandidat sesi yang dibuktikan lewat live POLL, reservasi sequence yang diverifikasi sebelum TX, telemetry32 byte, reassembly446 byte schema3, validasi CRC/semantik, serta arsip lokal immutable. Dashboard **React** ringan memakai aset lokal terkompresi, dengan bahasa Inggris/Indonesia dan akses AP. Tidak ada cloud, database server, Enterprise Wi-Fi, LoRaWAN, mesh, OTA atau perintah remote konfigurasi node.
+## Monitoring kWh dan refresh manual
 
-## Build dan pengujian
+Nilai kWh yang tampil merupakan pembacaan valid terakhir dari power meter. Ketika belum ada kiriman baru, angka terakhir tetap terlihat bersama informasi waktu pengukuran, umur data, ID meter, dan kondisi koneksi LoRa. Statusnya berubah menjadi **data lama** supaya operator tidak salah menganggap angka tersebut sebagai pembacaan real-time. Jika pembacaan gagal atau sejak awal memang belum ada data valid, gateway menampilkan tanda kosong, bukan angka nol. Nilai kWh yang diterima sudah dalam satuan engineering; gateway tidak mengalikan CT/PT untuk kedua kalinya.
 
-UI0.1.1 memakai grid card per `(Network ID, Node ID)`, sesuai sketsa: status sesi/data, kWh, umur data, RSSI/SNR, frame/sequence terakhir dan counter RX per node. Buka **Received data** untuk detail payload yang sudah didecode. Card **+ Add node / Tambah node** memilih saran ID yang belum dipakai, memvalidasi duplikasi, lalu menyimpan inventori ke flash NVS lewat verified save. ID/nama/key tersimpan; data live dan counter link tetap di RAM. Indikator fresh/stale terpisah dari sesi/link, dan umur data terus berjalan saat koneksi browser terputus. [Preview card](docs/assets/node-cards-mobile-qa.png) memakai data simulasi.
+Tombol **Request live** digunakan untuk meminta telemetry terbaru yang tersedia pada satu node. Perintah ini tidak memaksa node menjalankan transaksi pembacaan register Modbus RS485 baru. Gateway mengirim paket `POLL` mode 0, kemudian menunggu paket `TELEMETRY` dengan nomor korelasi yang sesuai. Mekanismenya mirip permintaan baca melalui HTTP GET, tetapi paket di udara tetap mengikuti protokol LoRa v1 milik node. Hasil klik tidak otomatis berarti data berhasil diterima: ada tahap antrean, pengiriman, menunggu balasan, dan kemungkinan timeout. Tombol checkpoint memakai `POLL` mode 1 untuk meminta arsip satu hari; datanya diverifikasi sebelum disimpan ke flash gateway.
 
-Host terminal **INPUT**, dari root repository (Python3 + PlatformIO Core6.1.19, g++ untuk tes native):
+## Penjadwalan beberapa node
 
-```powershell
+Interval pengiriman berkala diatur dari firmware atau halaman konfigurasi masing-masing node. Misalnya empat node sama-sama memakai interval satu jam, waktu kirimnya belum tentu berbeda karena perangkat memiliki jam, waktu boot, dan kondisi radio masing-masing. Gateway tidak boleh menganggap interval tersebut sebagai jadwal TDMA. Sistem menggunakan prioritas ACK, pembatasan airtime, urutan pengiriman bergiliran, retry dari sisi node, dan jeda antarpoll otomatis. Bila data valid tidak diterima selama satu jam ditambah waktu toleransi, gateway dapat mengirim permintaan penyegaran berprioritas rendah. Permintaan gagal tidak langsung dikirim berulang-ulang. Detailnya dijelaskan pada [dokumen desain radio](docs/RADIO_DESIGN.md), termasuk hal-hal yang tetap harus diuji menggunakan perangkat fisik.
+
+Setiap node mempunyai kombinasi network ID, node ID, dan HMAC key tersendiri. Kapasitas inventori firmware saat ini adalah 16 node, tetapi jumlah itu tidak berarti 16 perangkat pasti dapat berkomunikasi tanpa gangguan di dalam pabrik. Kualitas antena, kondisi tembok, konfigurasi SF/bandwidth, lalu lintas paket, dan airtime perlu diuji di lokasi. HMAC digunakan untuk autentikasi, bukan mengenkripsi nilai energi. Karena itu, data sensitif maupun kredensial perusahaan tidak boleh dimasukkan ke payload radio atau repository.
+
+## Perangkat, build, dan pengujian
+
+Acuan awal gateway adalah **ESP32-C3-DevKitM-1** dengan modul **SX1262 Ra-01SH V1.1**. Pastikan jalur SPI, DIO1, BUSY, RESET, pengaturan RF switch, dan jenis oscillator sesuai board yang benar-benar dibeli. Saat awal digunakan, radio masih nonaktif dan daftar node kosong. Jaringan AP commissioning serta kode akses halaman web dicetak ke Serial Monitor pada 115200 baud. Alamat dashboard lokal adalah `http://192.168.4.1`. Kata sandi AP pemulihan node adalah konfigurasi tersendiri dalam repository node dan tidak diubah oleh pekerjaan gateway ini.
+
+Perintah build dari root repository, menggunakan Python, PlatformIO, dan compiler C++:
+
+```sh
 python -m platformio run -e esp32c3
-python -m platformio run -e esp32c3 -t buildfs
 python tools/test_native.py
 ```
 
-Di workstation ini PlatformIO berada di `C:/Users/Lenovo/.platformio/penv/Scripts/platformio.exe`; gunakan executable tersebut jika Python aktif belum memiliki modul PlatformIO. Framework/dependency dipin pada platformio.ini. Aset web hasil build sudah disertakan. Untuk mengubah UI, host terminal **INPUT** dari `dashboard/` (Node22):
+Untuk membangun dashboard lokal, masuk ke direktori `dashboard/`, kemudian jalankan `npm ci`, `npm run build`, dan `npm test` dengan Node.js 22. Aset hasil build dimasukkan ke firmware melalui `firmware/web/assets.h`, sehingga firmware sebaiknya dikompilasi setelah dashboard dibangun. Jangan mengunggah filesystem image baru ke perangkat berisi arsip pengukuran tanpa memeriksa konsekuensi penghapusan datanya.
 
-```powershell
-npm ci
-npm run build
-npm test
-```
+## Batasan implementasi
 
-Compile firmware setelah membangun ulang UI. `npm run preview` memakai data simulasi berlabel untuk QA tampilan, bukan bukti RF. Lihat [hasil aktual dan ukuran compile](docs/VERIFICATION.md), manifest release, dan `python tools/package.py --verify` untuk pemeriksaan paket. Jangan mengunggah image filesystem saat update aplikasi rutin karena arsip akan terganti.
-
-## Commissioning
-
-Radio default nonaktif dan inventori kosong. ID gateway/network default1; contoh ID node2/3/4 harus memakai key masing-masing. Verifikasi [wiring C3](docs/HARDWARE.md), suplai3,3 V dan antena sebelum mengaktifkan radio. Serial Monitor **OUTPUT**,115200 baud, mencetak SSID AP, password WPA2 dan kode commissioning baru tiap boot. Sambungkan ke AP dan buka192.168.4.1. Masukkan key baru pada inventori lokal, simpan, cocokkan PHY dengan node, lalu aktifkan radio. Key tersimpan tidak dikembalikan melalui API/log/browser storage. NVS belum dienkripsi; HMAC memberikan autentikasi tanpa enkripsi payload.
-
-Bedakan konfigurasi tersimpan, chip initialized, HELLO ACK terkirim, sesi terkonfirmasi dan data fresh. HELLO replay tidak boleh mengganti sesi established tanpa respons live POLL dengan correlation baru. ID Modbus bukan ID radio node. Mengubah inventori tidak mengubah node dari jarak jauh dan tidak mengubah identitas pada arsip lama.
-
-Telemetry live ada di RAM; arsip checkpoint durable disimpan pada64 slot immutable. Sepuluh titik WIB dan metadata historis dipertahankan; kWh tidak dikalikan CT/PT lagi. Nilai invalid/stale/missing tampil `—`, bukan nol. UTC gateway tidak tersedia; receive timestamp memakai monotonic dan boot identity terpisah dari UTC node.
-
-Ikuti [panduan acceptance dan recovery](docs/COMMISSIONING.md): satu node → tiga node → kapasitas. Enam belas slot inventori bukan jaminan kapasitas RF. Sequence POLL harus meningkat dalam sesi node yang sama termasuk setelah gateway reboot. Ledger rusak/hilang menghentikan POLL; pemulihan membutuhkan tindakan lokal dan rotasi sesi node, bukan reset remote buatan.
-
-Build dan tes software dipisahkan dari **AWAITING_HARDWARE**: wiring fisik, pairing RF, brownout, tiga node, jangkauan dan kapasitas belum dianggap lolos tanpa bukti. Lihat [diagram kepemilikan task](docs/ARCHITECTURE.md), [keputusan](docs/DECISIONS.md), AGENTS.md dan tracker sebelum melanjutkan pekerjaan. Lisensi GPL-3.0-only beserta provenance node dipertahankan.
+Sistem ini dirancang sebagai alat monitoring lokal, bukan layanan yang dibuka langsung ke Internet. Autentikasi dashboard masih menggunakan kode commissioning, komunikasi web masih HTTP, dan gateway belum mempunyai RTC tepercaya ataupun integrasi database pusat. Uji kode dan simulasi paket bisa membuktikan konsistensi logika, tetapi belum menggantikan pengujian LoRa, pembacaan meter asli, serta jangkauan pada lingkungan pabrik. Lihat [panduan commissioning](docs/COMMISSIONING.md), [hasil verifikasi](docs/VERIFICATION.md), dan [aturan kebersihan repository](tools/security_audit.py) sebelum menerapkan build baru.

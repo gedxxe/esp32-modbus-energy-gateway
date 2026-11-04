@@ -8,11 +8,11 @@
   gap: 16px;
   padding: 14px 18px;
   margin: 0 0 26px;
-  border: 1px solid #dce3d1;
+  border: 1px solid #cddfed;
   border-radius: 8px;
-  background: #e9eddf;
+  background: #eaf3fe;
   font-size: 11px;
-  color: #607552;
+  color: #35618c;
 }
 .active-phy-strip > span {
   display: flex;
@@ -257,7 +257,7 @@
   display: none;
 }
 .received-data summary:focus-visible {
-  outline: 2px solid #87a948;
+  outline: 2px solid #51a5e9;
   outline-offset: 3px;
 }
 .received-data[open] summary span {
@@ -393,8 +393,8 @@ html {
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  color: #26332b;
-  background: #f5f6f2;
+  color: #23364a;
+  background: #f4f7fb;
   font-size: 14px;
 }
 body {
@@ -419,7 +419,7 @@ select {
 button {
   cursor: pointer;
   background: #fff;
-  border: 1px solid #dce2d9;
+  border: 1px solid #dbe6f0;
   border-radius: 7px;
   padding: 10px 15px;
   color: inherit;
@@ -427,7 +427,7 @@ button {
   transition: background 0.15s;
 }
 button:hover {
-  background: #eef2e9;
+  background: #eef5fd;
 }
 button:disabled {
   opacity: 0.45;
@@ -438,7 +438,7 @@ a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 3px solid #87a948;
+  outline: 3px solid #51a5e9;
   outline-offset: 3px;
 }
 input,
@@ -446,15 +446,15 @@ select,
 textarea {
   width: 100%;
   padding: 11px 12px;
-  border: 1px solid #ccd4c8;
+  border: 1px solid #c6d6e4;
   background: #fff;
   border-radius: 6px;
-  color: #26332b;
+  color: #23364a;
 }
 input[type="checkbox"] {
   width: 17px;
   height: 17px;
-  accent-color: #476c2f;
+  accent-color: #1168ab;
 }
 textarea {
   resize: vertical;
@@ -464,28 +464,28 @@ small {
   font-size: 11px;
 }
 .muted {
-  color: #8b948c;
+  color: #778da4;
 }
 .green {
-  color: #7e9c45;
+  color: #147ac3;
 }
 .primary {
-  background: #243d28;
+  background: #07539c;
   color: #f6ffe9;
-  border: 1px solid #243d28;
+  border: 1px solid #07539c;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 24px;
 }
 .primary:hover {
-  background: #365538;
+  background: #1269bb;
 }
 .eyebrow {
   font-size: 10px;
   font-weight: 650;
   letter-spacing: 1.7px;
-  color: #71806c;
+  color: #5b7895;
 }
 h1,
 h2,
@@ -508,7 +508,7 @@ h3 {
   font-size: 20px;
 }
 p {
-  color: #788375;
+  color: #64798f;
   line-height: 1.7;
 }
 .shell {
@@ -517,8 +517,8 @@ p {
   grid-template-columns: 224px minmax(0, 1fr);
 }
 aside {
-  background: #141e17;
-  color: #a8b3a5;
+  background: #071e35;
+  color: #c4d6e7;
   padding: 36px 20px;
   display: flex;
   flex-direction: column;
@@ -548,14 +548,14 @@ aside {
   justify-content: center;
   width: 40px;
   height: 44px;
-  background: #c8df93;
-  color: #263d25;
+  background: #d8e9fb;
+  color: #073c73;
   border-radius: 9px;
 }
 .side-label {
   font-size: 9px;
   letter-spacing: 1.8px;
-  color: #74816f;
+  color: #90a7bd;
   margin: 0 15px 16px;
 }
 nav {
@@ -570,7 +570,7 @@ nav button {
   text-align: left;
   border: 0;
   background: none;
-  color: #9da998;
+  color: #b5c6d9;
   font-size: 12px;
   padding: 14px 14px;
 }
@@ -732,8 +732,8 @@ nav b {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #e9eddf;
-  border: 1px solid #dce3d1;
+  background: #eaf3fe;
+  border: 1px solid #cddfed;
   border-radius: 12px;
   padding: 32px 36px;
   margin: 0 0 28px;
@@ -772,7 +772,7 @@ nav b {
 .hub {
   display: grid;
   place-items: center;
-  background: #243d28;
+  background: #07539c;
   color: #c7e291;
   border-radius: 14px;
   width: 78px;
@@ -1094,7 +1094,7 @@ dialog {
   width: min(640px, calc(100vw - 30px));
   max-height: 90vh;
   padding: 30px;
-  color: #26332b;
+  color: #23364a;
 }
 dialog::backdrop {
   background: #13201988;
@@ -1353,4 +1353,28 @@ dialog header h2 {
   .diagnostic-grid dl {
     font-size: 10px;
   }
+}
+
+/* Engineering identity and measurement details, built into the offline bundle. */
+.midea-brand { display:flex; align-items:center; gap:12px; max-width:100%; min-width:0; }
+.midea-brandmark { display:flex; align-items:center; justify-content:center; background:#0067b1; border-radius:9px; width:132px; height:52px; flex-shrink:0; padding:5px 7px; }
+.midea-brandmark svg { display:block; width:100%; height:auto; }
+.midea-brand-unit { display:flex; flex-direction:column; gap:5px; color:inherit; line-height:1.3; min-width:0; }
+.midea-brand-unit strong { font-weight:700; letter-spacing:1.4px; font-size:13px; }
+.midea-brand-unit span { font-size:9px; letter-spacing:.45px; opacity:.8; }
+.brand { margin:0 0 42px; padding:0; gap:0; }
+.brand .midea-brand { align-items:flex-start; flex-direction:column; gap:10px; }
+.brand .midea-brandmark { width:118px; height:46px; }
+.brand .midea-brand-unit strong { font-size:12px; color:#e6f3ff; }
+.brand .midea-brand-unit span { color:#b5c6d9; font-size:8px; max-width:160px; }
+.login-brand .midea-brand { flex-wrap:wrap; }
+.login-brand .midea-brand-unit { color:#14314c; }
+.reading-note { margin:9px 0 0; font-size:11px; line-height:1.5; color:#8b6031; }
+.node-card:not(.is-fresh) .node-energy .energy { color:#2d5678; }
+.node-card:not(.is-fresh) .reading-note { color:#926231; }
+@media (max-width:760px) {
+ .brand .midea-brand { flex-direction:row; align-items:center; }
+ .brand .midea-brand-unit { display:none; }
+ .login-brand .midea-brand-unit span { font-size:8px; }
+ .midea-brandmark { width:110px; height:44px; }
 }

@@ -9,7 +9,7 @@ const html = await readFile(
   "utf8",
 );
 const wait = () => new Promise((r) => setTimeout(r, 70));
-test("built UI keeps invalid or stale energy absent", async () => {
+test("built UI hides missing energy and retains the last valid stale reading", async () => {
   for (const mode of ["missing", "stale"]) {
     const state = fixture();
     if (mode === "missing") {
@@ -39,7 +39,7 @@ test("built UI keeps invalid or stale energy absent", async () => {
         new w.Event("submit", { bubbles: true, cancelable: true }),
       );
       await wait();
-      assert.equal(d.querySelector(".energy").textContent.trim(), "— kWh");
+      assert.equal(d.querySelector(".energy").textContent.trim(), mode === "missing" ? "— kWh" : "1,234.567 kWh");
       assert.ok(d.body.textContent.includes("Stale data"));
     } finally {
       dom.window.close();
@@ -102,7 +102,7 @@ test("built React UI: authentication, tabs, missing energy, command queue, and k
   const w = dom.window,
     d = w.document;
   await wait();
-  assert.ok(d.body.textContent.includes("Connected."));
+  assert.ok(d.body.textContent.includes("LoRa power monitoring"));
   const input = d.querySelector("input");
   Object.getOwnPropertyDescriptor(
     w.HTMLInputElement.prototype,
@@ -158,7 +158,7 @@ test("built React UI: authentication, tabs, missing energy, command queue, and k
   assert.ok(d.body.textContent.includes("One SX1262"));
   click("Diagnostics");
   await wait();
-  assert.ok(d.body.textContent.includes("Airtime planning"));
+  assert.ok(d.body.textContent.includes("LoRa airtime and refresh policy"));
   click("EN / ID");
   await wait();
   assert.ok(d.body.textContent.includes("Diagnostik"));

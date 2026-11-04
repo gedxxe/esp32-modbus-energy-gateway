@@ -473,6 +473,68 @@ void sessions() {
   timeout.tick(timeout.nodes[0].pending.deadline + 1);
   CHECK(timeout.nodes[0].pending.state == RequestState::Unavailable && timeoutIO.saved == 0);
 }
+void retainedLastValidReading() {
+  IO io;
+  Gateway g(io);
+  g.configure(config());
+  g.nodes[0].current.nonce = 2026;
+  Frame first = frame(g.config, 0, Telemetry, 1, 2026);
+  CHECK(receive(g, first, 0, 1000) == Reject::None);
+  CHECK(g.nodes[0].hasLastValid);
+  CHECK(g.nodes[0].lastValid.kwh == 123.456);
+  CHECK(g.nodes[0].lastValidReceived == 1000);
+  Frame invalid = frame(g.config, 0, Telemetry, 2, 2026);
+  invalid.payload[12] = 8;
+  memset(invalid.payload + 24, 0, 8);
+  CHECK(receive(g, invalid, 0, 1500) == Reject::None);
+  CHECK(g.nodes[0].hasLive && !(g.nodes[0].live.flags & 1));
+  CHECK(g.nodes[0].hasLastValid && g.nodes[0].lastValid.kwh == 123.456);
+  CHECK(g.nodes[0].lastValidReceived == 1000);
+}
+void automaticRefresh() {
+  RefreshPolicy policy;
+  CHECK(!policy.due(0, 1000 + RefreshIntervalMs, 1000, true));
+  CHECK(!policy.due(0, 1000 + RefreshIntervalMs + RefreshGraceMs - 1, 1000, true));
+  CHECK(policy.due(0, 1000 + RefreshIntervalMs + RefreshGraceMs, 1000, true));
+  CHECK(policy.due(1, 1000 + RefreshRetryMs, 1000, false));
+  policy.attempted(0, 1000 + RefreshIntervalMs + RefreshGraceMs);
+  CHECK(!policy.available(1000 + RefreshIntervalMs + RefreshGraceMs + RefreshSpacingMs - 1));
+  CHECK(policy.available(1000 + RefreshIntervalMs + RefreshGraceMs + RefreshSpacingMs));
+  CHECK(policy.at(0) == 1);
+  policy.reset();
+  CHECK(policy.at(0) == 0);
+
+  IO io;
+  Gateway g(io);
+  g.configure(config());
+  for (unsigned i = 0; i < 3; ++i) {
+    g.nodes[i].current.nonce = uint64_t(1200 + i);
+    g.nodes[i].hasLive = true;
+    g.nodes[i].live.flags = 1;
+    g.nodes[i].received = 1000;
+  }
+  uint64_t due = 1000 + RefreshIntervalMs + RefreshGraceMs;
+  g.tick(due - 1);
+  CHECK(io.reservations.empty());
+  g.tick(due);
+  CHECK(io.reservations.size() == 1);
+  CHECK(io.reservations[0].index == 0);
+  CHECK(g.automaticPolls == 1 && g.automaticPollErrors == 0);
+  CHECK(g.nodes[0].pending.state == RequestState::Reserving);
+  // The flash-reservation deadline is 30 s; test inside that active window.
+  g.tick(due + 29999);
+  CHECK(io.reservations.size() == 1);
+  g.nodes[0].pending.state = RequestState::Idle;
+  // Fresh unsolicited telemetry postpones an automatic request to that node.
+  g.nodes[1].received = due;
+  g.tick(due + RefreshSpacingMs);
+  CHECK(io.reservations.size() == 2);
+  CHECK(io.reservations[1].index == 2);
+  CHECK(g.automaticPolls == 2);
+  // Configuration changes reset only the volatile refresh policy.
+  g.configure(config());
+  CHECK(g.automaticPolls == 0 && g.automaticPollErrors == 0);
+}
 void scheduler() {
   Scheduler s;
   auto c = config();
@@ -569,5 +631,7 @@ int main(int argc, char **argv) {
   reassembly();
   sessions();
   scheduler();
+  automaticRefresh();
+  retainedLastValidReading();
   std::cout << "PASS " << checks << " production-core regression assertions\n";
 }

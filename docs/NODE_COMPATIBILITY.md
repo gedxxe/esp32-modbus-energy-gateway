@@ -2,9 +2,9 @@
 
 ## Audited baseline
 
-Read-only upstream: [gedxxe/esp32-modbus-energy](https://github.com/gedxxe/esp32-modbus-energy/tree/26c3a9429c8c4d410ef11a1b81e1e42f295034b1), commit **26c3a9429c8c4d410ef11a1b81e1e42f295034b1**, node firmware **3.4.3**, wire protocol **Energy Station v1**. Firmware version and protocol version are independent. No upstream repository writes were performed. Gateway is a separately initialized repository in the supplied workspace.
+Read-only upstream: [gedxxe/esp32-modbus-energy](https://github.com/gedxxe/esp32-modbus-energy), main commit **770512260ef5133296790ee21d2635c55f00196f**, node firmware **3.5.0**, and **Energy Station radio protocol v1**. The gateway implements the existing wire contract; firmware and radio protocol versions are separate. The node repository is not changed by this work.
 
-The audit read `docs/LORA_PROTOCOL.md`, `docs/LORA_PTMP.md`, `docs/LORA.md`, `firmware/include/lora_protocol.h`, `firmware/src/lora_service.cpp`, `firmware/include/checkpoint_log.h`, `firmware/lib/FortMeter/src/MeterProfiles.h`, `docs/lora-v1-vector.json`, and `tools/check_lora.py` at that commit using the read-only GitHub connector. Actual decoder dependencies `firmware/include/energy.h` and `firmware/include/clock_guard.h` were traced and read. The module manual provenance JSON was also read and its PDF hash independently matched. Captured source hashes are in `reference-files.json`; links refer to this commit, not moving HEAD.
+The implementation was cross-checked against upstream `docs/LORA_PROTOCOL.md`, `firmware/include/lora_protocol.h`, `firmware/src/lora_service.cpp`, `firmware/include/checkpoint_log.h` and the public interoperability vector. `docs/reference-files.json` still retains hashes from the earlier 3.5.0 baseline for reproducibility and is not presented as an updated hash manifest. The wire layout and field meanings used by the gateway remain the protocol v1 contract.
 
 ## Wire contract implemented
 
@@ -22,7 +22,7 @@ Gateway code is GPL-3.0-only, preserving upstream SPDX/provenance in NOTICE/LICE
 
 ## Findings resolved before implementation
 
-1. Source/documents agree on packet layout, schema3 and fragment sizes. The public vector's HELLO firmware string is **3.4.0**, although the baseline firmware is3.4.3. This is a valid earlier fixture for unchanged protocol1; do not rewrite its tag/version string. Production codec accepts and roundtrips the exact bytes.
+1. Source/documents agree on packet layout, schema3 and fragment sizes. The public vector's HELLO firmware string is **3.4.0**, although the current firmware is 3.5.0. This is a valid earlier fixture for unchanged protocol1; do not rewrite its tag/version string. Production codec accepts and roundtrips the exact bytes.
 2. Documentation names a future C6 gateway; the owner explicitly selected C3. That changes board/build choices and no wire bytes.
 3. `checkpoint_log.h` also decodes schema1/2 locally. Radio source freezes/reserializes schema3, so gateway requires446/schema3; it does not import the entire legacy storage application.
 4. Node `receivedPacket()` accepts forward POLL only when paired and queues live/archive work; it does not ACK POLL. Gateway waits for correlated telemetry/fragments. A late/foreign ACK cannot finish a request. HELLO ACK must precede a successful challenge.

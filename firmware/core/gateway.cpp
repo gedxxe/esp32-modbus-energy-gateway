@@ -66,6 +66,8 @@ Reject Gateway::reject(Reject r) {
 }
 void Gateway::configure(const Config &c) {
   scheduler.clear();
+  refreshPolicy.reset();
+  automaticPolls = automaticPollErrors = 0;
   assembly = Assembly{};
   archiveOwner = -1;
   for (unsigned i = 0; i < 16; i++)
@@ -244,6 +246,11 @@ Reject Gateway::receive(const uint8_t *wire, size_t size, uint64_t now, float rs
       n.live = l;
       n.hasLive = true;
       n.received = now;
+      if ((l.flags & 1) && std::isfinite(l.kwh)) {
+        n.lastValid = l;
+        n.hasLastValid = true;
+        n.lastValidReceived = now;
+      }
     }
   } else if (f.type == Checkpoint) {
     Pending &p = n.pending;
@@ -372,6 +379,35 @@ void Gateway::tick(uint64_t now) {
       } else if (n.helloAcked)
         request(i, n.candidate.nonce, 0, 0, true, now);
     }
+  }
+  // Scheduled POLLs are deliberately lower priority than radio ACKs,
+  // checkpoint transfers, a manual request and a session challenge.
+  // One unresolved POLL at a time avoids a wall of pending requests
+  // across a half-duplex radio shared by all nodes.
+  if (!config.enabled || !refreshPolicy.available(now) ||
+      scheduler.depth || now < scheduler.nextTx || archiveOwner >= 0)
+    return;
+  for (const auto &n : nodes)
+    if (n.pending.state == RequestState::Reserving ||
+        n.pending.state == RequestState::Queued ||
+        n.pending.state == RequestState::Waiting ||
+        n.pending.state == RequestState::Validated)
+      return;
+  for (unsigned offset = 0; offset < InventoryCapacity; ++offset) {
+    uint8_t i = refreshPolicy.at(offset);
+    const NodeState &n = nodes[i];
+    const bool hasEnergy = (n.live.flags & 1) != 0;
+    if (!config.nodes[i].occupied || !config.nodes[i].enabled ||
+        !n.current.nonce || n.candidate.nonce || !n.hasLive ||
+        !refreshPolicy.due(i, now, n.received, hasEnergy))
+      continue;
+    const bool ok = request(i, n.current.nonce, 0, 0, false, now);
+    refreshPolicy.attempted(i, now);
+    if (ok)
+      ++automaticPolls;
+    else
+      ++automaticPollErrors;
+    return;
   }
 }
 } // namespace gw

@@ -190,7 +190,8 @@ test("data ages continue increasing if status polling stalls", async () => {
     tick();
     await wait();
     assert.ok(d.querySelector(".node-card").textContent.includes("Stale data"));
-    assert.equal(d.querySelector(".energy").textContent.trim(), "— kWh");
+    assert.ok(d.querySelector(".energy").textContent.includes("kWh"));
+    assert.notEqual(d.querySelector(".energy").textContent.trim(), "— kWh");
   } finally {
     dom.window.close();
   }

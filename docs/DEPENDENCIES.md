@@ -17,4 +17,4 @@
 
 No node_modules, `.pio`, toolchain archives, reference cache, production credentials or development Python tools are included in the release source package. `firmware/web/assets.h` is a generated, local compressed asset; it embeds React's retained notices and no test fixture. A production firmware build does not serve `dashboard/preview.mjs` or test data.
 
-Build verification results, exact chip/framework output, static RAM/flash sizes and SHA256 manifest are in `docs/VERIFICATION.md` and `release/manifest.json`. Runtime heap/stack watermarks, flash power-fail behavior and RF performance need the hardware acceptance procedure.
+The CI workflow provides current build and native-test evidence. Compiled release files are generated artifacts and are intentionally excluded from Git; do not treat an old release manifest as evidence for a newer source commit. Runtime heap/stack watermarks, flash power-fail behavior and RF performance need the hardware acceptance procedure.

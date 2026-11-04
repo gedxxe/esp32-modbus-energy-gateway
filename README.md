@@ -1,56 +1,36 @@
-# Energy Station LoRa Gateway
+# Midea Engineering — LoRa Power Monitoring Gateway
 
-[Bahasa Indonesia](README.id.md) · [Commissioning](docs/COMMISSIONING.md) · [Compatibility](docs/NODE_COMPATIBILITY.md) · [Work tracker](WORK_STATUS.md)
+[Dokumentasi Bahasa Indonesia](README.id.md) · [Protocol and scheduling](docs/RADIO_DESIGN.md) · [Commissioning](docs/COMMISSIONING.md) · [Node compatibility](docs/NODE_COMPATIBILITY.md)
 
-Independent raw-LoRa PTMP gateway for `gedxxe/esp32-modbus-energy` firmware3.4.3, Energy Station protocol1. First build target: **ESP32-C3-DevKitM-1 + SX1262 Ai-Thinker Ra-01SH V1.1**, 4 MB flash, no PSRAM. Board configuration is isolated. The node repository is a read-only compatibility reference pinned to commit26c3a9429c8c4d410ef11a1b81e1e42f295034b1.
+This project is the receiver for the [ESP32 power-meter node](https://github.com/gedxxe/esp32-modbus-energy). The node reads a meter over Modbus RTU, validates the reading and applies the meter's PT/CT ratios. This ESP32-C3 gateway listens for authenticated LoRa frames and exposes the received values on a local dashboard. The two repositories share the **Energy Station protocol v1**, not a shared firmware image. The node repository is the authoritative source for the radio packet format. Changes in this repository do not remotely update any node.
 
-The MVP implements authenticated packets, ACK priority/fair scheduling with a shared1% TX gate, candidate-session live challenges, durable POLL sequence reservations, telemetry, schema3 checkpoint reassembly/validation and immutable local archives. A locally bundled **React** AP console provides inventory, PHY settings, freshness, live/checkpoint requests, archive JSON export, bounded logs and layered diagnostics. English is default with an Indonesian option. No CDN or internet connection is needed.
+## Reading power-meter data
 
-Radio starts disabled; inventory starts empty and has16 slots. Gateway/default network IDs are1; examples2/3/4 require distinct commissioned keys. Slots are not an RF capacity promise. Missing/stale values never become measured zero. HMAC authenticates, not encrypts. No cloud, server database, enterprise Wi-Fi, mesh, LoRaWAN, OTA or remote node-configuration extension is included.
+The dashboard keeps the last valid kWh reading visible with its source timestamp, receive age, meter profile, inventory ID and radio link status. A reading becomes **stale** as time passes, but the value is not erased or replaced by zero. A valid LoRa payload already contains scaled engineering kWh; the gateway **must never multiply by PT/CT again**. The current protocol does not transmit a full register map or every electrical measurement. Other parameters should be added only through a versioned change agreed by both node and gateway; inventing fields in the gateway would produce misleading data.
 
-## Build
+The operator can click **Request live** for a particular node. This asks the node to send the most recent Modbus-derived sample it currently holds; it does not command a new RS485 register transaction. The gateway sends an authenticated LoRa `POLL` with mode 0, and the node responds with a `TELEMETRY` frame containing the matching request sequence. This is an application-level request/response exchange, similar in intent to a read-only HTTP GET, but it is not HTTP transported over LoRa. The request is queued, then transmitted subject to the radio duty cycle and other pending packets. The dashboard distinguishes a queued request, an outstanding response, a received measurement and a timeout; merely accepting the HTTP command is not proof that the meter was read.
 
-The0.1.1 dashboard uses a responsive grid of cards per `(Network ID, Node ID)` on Overview and Node inventory. Each card shows session/data state, kWh, receive/sample ages, observed RSSI/SNR, latest accepted frame/sequence, and separate new/duplicate RX counters. Expand **Received data** for the decoded source fields. A **+ Add node** card suggests an unused address, rejects conflicting IDs and opens the existing authorized flash-inventory save flow. Saved IDs/names/keys survive reload/reboot through verified NVS banks; latest live data and link counters remain RAM-only. Browser ages continue advancing when status polling stalls. See [card preview](docs/assets/node-cards-mobile-qa.png) (simulated data).
+## One gateway, several nodes
 
-Prerequisites: Python3 + PlatformIO Core6.1.19; pins in platformio.ini. Host terminal INPUT, repository root:
+A node can be configured locally to transmit once every hour. Because LoRa is half-duplex, simultaneous uplinks can interfere; assigning a one-hour interval to all nodes does **not** give each of them a guaranteed time slot. The gateway gives ACK frames priority, limits its own airtime, uses round-robin ordering for queued transmissions and does not start several stale-data POLLs together. If no valid update arrives for an hour plus a grace period, it can issue a low-priority refresh request. Unsuccessful automatic requests are rate-limited. These controls reduce congestion but are not TDMA and cannot eliminate collisions caused by independent transmitters. Full airtime and recovery assumptions are recorded in [radio design](docs/RADIO_DESIGN.md).
 
-```powershell
+Each node must have a distinct radio ID and its own 32-byte HMAC key. The gateway supports up to 16 inventory entries, which is a storage limit rather than a radio capacity guarantee. Keys are configured locally, never sent in LoRa packets and are not returned through the dashboard API. LoRa payloads are authenticated but **not encrypted**; they should not contain personal data. Local checkpoint archives remain separate from the latest telemetry and are verified before being stored.
+
+## Hardware and setup
+
+The reference hardware is an **ESP32-C3-DevKitM-1 with an SX1262 Ra-01SH V1.1**. This is a board-specific reference, not a claim that an unknown module will work without checking wiring, RF-switch configuration and oscillator supply. The gateway starts with radio disabled and no enrolled nodes. The local commissioning AP and access code are announced on the Serial Monitor at 115200 baud, while the dashboard is served at `http://192.168.4.1`. The node's published recovery AP password remains a separate node-firmware setting; the gateway's commissioning credentials are not interchangeable with that password.
+
+From the repository root, with Python 3, PlatformIO Core and a C++ compiler available:
+
+```sh
 python -m platformio run -e esp32c3
-python -m platformio run -e esp32c3 -t buildfs
 python tools/test_native.py
 ```
 
-On this Windows workstation, PlatformIO is installed at `C:/Users/Lenovo/.platformio/penv/Scripts/platformio.exe`; use that executable if the current Python cannot import PlatformIO. Native tests require g++. Source paths containing spaces are passed as argument arrays. Generated dashboard assets are checked in. To edit/rebuild the UI, host terminal INPUT from `dashboard/`:
+To build the locally bundled dashboard, use Node.js 22 and run `npm ci`, `npm run build` and `npm test` inside `dashboard/`. The build regenerates `firmware/web/assets.h`; build the firmware **after** generating the dashboard. Normal firmware updates should not overwrite a device's archive partition. See [commissioning](docs/COMMISSIONING.md) before flashing or clearing flash.
 
-```powershell
-npm ci
-npm run build
-npm test
-```
+## Security and acceptance
 
-Use Node22/npm with package-lock.json. Compile firmware after rebuilding UI. `npm run preview` serves a labelled simulated fixture using the actual production bundle at127.0.0.1:4173; it is UI QA, not RF evidence.
+This is a local engineering installation, not an Internet-exposed service. The dashboard uses HTTP on a controlled AP and a temporary commissioning access code. At-rest flash encryption, a trusted gateway RTC, cloud synchronization and a managed multi-user login system are not provided. Host software tests and ESP32 compilation do not prove radio range, collision-free operation or accurate readings on a particular meter. The final acceptance procedure must include a real node, gateway and antenna installed at the intended locations. Repository hygiene checks are in `tools/security_audit.py`; local workstation paths, provisioning keys, compiled ELF files and temporary build output do not belong in Git.
 
-Release binaries, verified hashes, compile sizes and exact test outcomes are documented in [VERIFICATION](docs/VERIFICATION.md). `python tools/package.py` creates the reproducible manifest/source package after successful builds; `--verify` checks it. Never upload filesystem images during a routine update: they replace historical archives. No device is flashed automatically.
-
-## Use
-
-Follow [hardware/wiring](docs/HARDWARE.md), verify purchased board/module and antenna, then first-provision deliberately. Serial Monitor **OUTPUT** at115200 prints the AP name, new boot-only WPA2 password and commissioning access code. Open192.168.4.1 on that AP. Register a node/key, save, match shared PHY, then enable radio. Save/queue/apply results are separate from driver initialization, HELLO ACK, confirmed session and fresh data.
-
-Use periodic uplinks first. Request a live value only when needed; checkpoint mode0-day selects the node's active capture day. JSON exports retain ten WIB points with source UTC, historical profile/meter/ratios and gateway monotonic receive reference. Gateway has no trusted UTC source; no DS3231 is assumed. Latest live telemetry is RAM-only; durable checkpoints use64 bounded append-only slots.
-
-Read [commissioning/recovery](docs/COMMISSIONING.md) before reboot, storage repair or inventory identity changes. A lost/corrupt sequence ledger blocks POLL; never reset sequence to1 for a node session that still remembers prior polls. Physical RF, power-fail, range and multi-node capacity acceptance remain **AWAITING_HARDWARE**, independently of compile/native tests.
-
-## Source map
-
-| Directory/file | Responsibility |
-|---|---|
-| firmware/board | GPIO, oscillator and RF-switch adapter |
-| firmware/core | Portable production codec/HMAC, schema, sessions, replay, scheduler |
-| firmware/storage | CRC banks, sequence reservation, bounded immutable archives |
-| firmware/app, radio | FreeRTOS owner tasks/queues and sole SPI/RadioLib owner |
-| firmware/web, dashboard | Bounded authorized API and locally built React UI |
-| tests, tools | Production-code regressions, vector check, packaging |
-| AGENTS.md, WORK_STATUS.md | Permanent rules and resumable work/evidence |
-| docs | Decisions, provenance, ownership diagram, wiring/netlist, acceptance |
-
-See [architecture/ownership](docs/ARCHITECTURE.md) and [decisions](docs/DECISIONS.md). GPL-3.0-only; upstream adaptations and bundled dependency notices are preserved in LICENSE, NOTICE and licenses/.
+[Source layout](docs/ARCHITECTURE.md) · [Validation](docs/VERIFICATION.md) · [Hardware](docs/HARDWARE.md) · [Licenses](NOTICE)
