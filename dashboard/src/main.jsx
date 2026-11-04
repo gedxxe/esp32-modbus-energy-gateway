@@ -218,6 +218,7 @@ function App() {
   const nodes = view.nodes.map((n) => ({
       ...n,
       receiveAge: n.hasLive ? n.receiveAge + elapsed : n.receiveAge,
+      lastValidAge: n.hasLastValid ? n.lastValidAge + elapsed : n.lastValidAge,
       packetAge: n.packetAge == null ? null : n.packetAge + elapsed,
     })),
     enabled = nodes.filter((n) => n.enabled),
