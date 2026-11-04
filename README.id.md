@@ -1,58 +1,120 @@
-# Midea Engineering — Gateway Monitoring Daya LoRa
+<p align="center"><img src="docs/assets/midea-brand.svg" alt="Midea" width="240" /></p>
 
-[English](README.md) · [PlatformIO / VS Code](docs/PLATFORMIO_VSCODE.md) · [Wiring ESP32-C3](docs/HARDWARE.md) · [Pengendalian collision](docs/COLLISION_CONTROL.md) · [Kompatibilitas node](docs/NODE_COMPATIBILITY.md)
+<h1 align="center">Energy Station · Gateway Monitoring Daya LoRa PTMP</h1>
+<p align="center">ESP32-C3 + SX1262 · Modbus RTU via ESP32-S3 node · Dashboard web lokal</p>
 
-Repository ini berisi firmware penerima untuk [node ESP32 pembaca power meter](https://github.com/gedxxe/esp32-modbus-energy). Pembacaan register Modbus, validasi data, serta perhitungan rasio PT dan CT tetap dilakukan pada node. Gateway ESP32-C3 bertugas menerima paket LoRa yang sudah terautentikasi, menyimpan data yang memang perlu diarsipkan, dan menyediakan halaman monitoring melalui jaringan lokal. Acuan format paketnya adalah **Energy Station protocol v1** yang digunakan firmware node, bukan format JSON atau HTTP yang dikirim langsung lewat radio.
+<p align="center">
+<img src="docs/assets/badges/board.svg" alt="ESP32-C3" height="25" />
+<img src="docs/assets/badges/platformio.svg" alt="PlatformIO 6.1.19" height="25" />
+<img src="docs/assets/badges/protocol.svg" alt="LoRa v1" height="25" />
+<img src="docs/assets/badges/firmware.svg" alt="Gateway 0.3.0-rc1" height="25" />
+</p>
+<p align="center">
+<img src="https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white&style=flat-square" alt="C++17" />
+<img src="https://img.shields.io/badge/Arduino-ESP32%203.3.11-00878F?logo=arduino&logoColor=white&style=flat-square" alt="Arduino" />
+<img src="https://img.shields.io/badge/JavaScript-ES2020-F7DF1E?logo=javascript&logoColor=black&style=flat-square" alt="JavaScript" />
+<img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black&style=flat-square" alt="React" />
+<img src="https://img.shields.io/github/stars/gedxxe/esp32-modbus-energy-gateway?style=flat-square" alt="GitHub stars" />
+</p>
 
-![Topologi PTMP node ESP32-S3 dan gateway ESP32-C3](docs/assets/ptmp-topology.svg)
+<p align="center"><a href="README.md">English</a> · <a href="docs/PLATFORMIO_VSCODE.md">PlatformIO / VS Code</a> · <a href="docs/HARDWARE.md">Wiring</a> · <a href="docs/COLLISION_CONTROL.md">Collision control</a> · <a href="https://github.com/gedxxe/esp32-modbus-energy">Firmware node</a></p>
 
-Gateway yang digunakan sementara adalah **ESP32-C3-DevKitM-1**, bukan ESP32-C6 yang disebut dalam beberapa dokumen node terdahulu. Repository node tetap dipakai sebagai referensi dan tidak diubah.
+## Fungsi utama
 
-## Monitoring kWh dan refresh manual
+Gateway ESP32-C3 menerima **paket LoRa Energy Station v1 yang terautentikasi** dari beberapa ESP32-S3 node. Pembacaan Modbus RS485, validasi dan perhitungan CT/PT terjadi di **node**. Gateway hanya melakukan verifikasi HMAC, pencegahan replay, korelasi transaksi, penyimpanan arsip terverifikasi dan penyajian nilai kWh yang sudah diskalakan melalui dashboard web lokal.
 
-Nilai kWh yang tampil merupakan pembacaan valid terakhir dari power meter. Ketika belum ada kiriman baru, angka terakhir tetap terlihat bersama informasi waktu pengukuran, umur data, ID meter, dan kondisi koneksi LoRa. Statusnya berubah menjadi **data lama** supaya operator tidak salah menganggap angka tersebut sebagai pembacaan real-time. Jika pembacaan gagal atau sejak awal memang belum ada data valid, gateway menampilkan tanda kosong, bukan angka nol. Nilai kWh yang diterima sudah dalam satuan engineering; gateway tidak mengalikan CT/PT untuk kedua kalinya.
+Semua node menggunakan satu kanal LoRa half-duplex. Gateway memberi prioritas ACK dan memeriksa kanal menggunakan **SX1262 Channel Activity Detection (CAD)** sebelum mengirim POLL. Firmware node pasangannya juga mendapat CAD non-blocking sebelum uplink, serta randomized backoff ketika kanal terdeteksi sibuk. Mekanisme ini mengurangi risiko tabrakan, tetapi **tidak menjamin bebas collision** jika ada hidden node atau interferensi.
 
-Tombol **Request live** digunakan untuk meminta telemetry terbaru yang tersedia pada satu node. Perintah ini tidak memaksa node menjalankan transaksi pembacaan register Modbus RS485 baru. Gateway mengirim paket `POLL` mode 0, kemudian menunggu paket `TELEMETRY` dengan nomor korelasi yang sesuai. Mekanismenya mirip permintaan baca melalui HTTP GET, tetapi paket di udara tetap mengikuti protokol LoRa v1 milik node. Hasil klik tidak otomatis berarti data berhasil diterima: ada tahap antrean, pengiriman, menunggu balasan, dan kemungkinan timeout. Tombol checkpoint memakai `POLL` mode 1 untuk meminta arsip satu hari; datanya diverifikasi sebelum disimpan ke flash gateway.
+## Jelajahi sistem melalui diagram
 
-![Alur request/response POLL dan TELEMETRY melalui LoRa](docs/assets/poll-sequence.svg)
+<table><tr><td width="50%" align="center"><a href="docs/assets/ptmp-topology.svg"><img src="docs/assets/ptmp-topology.svg" alt="Topologi LoRa PTMP" width="440" /></a><br/><b>01 · Topologi PTMP</b><br/><a href="docs/NODE_COMPATIBILITY.md">Identitas node &amp; protokol</a></td><td width="50%" align="center"><a href="docs/assets/wiring-c3.svg"><img src="docs/assets/wiring-c3.svg" alt="Diagram wiring C3 ke SX1262" width="440" /></a><br/><b>02 · Wiring ESP32-C3</b><br/><a href="docs/HARDWARE.md">Detail GPIO dan pin modul</a></td></tr><tr><td align="center"><a href="docs/assets/poll-sequence.svg"><img src="docs/assets/poll-sequence.svg" alt="Flow LoRa" width="440" /></a><br/><b>03 · Alur komunikasi</b><br/><a href="docs/RADIO_DESIGN.md">POLL / TELEMETRY / ACK</a></td><td align="center"><a href="docs/assets/platformio-layout.svg"><img src="docs/assets/platformio-layout.svg" alt="Struktur folder PlatformIO" width="440" /></a><br/><b>04 · Struktur PlatformIO</b><br/><a href="docs/PLATFORMIO_VSCODE.md">Setup VS Code</a></td></tr><tr><td align="center"><a href="docs/assets/channel-access.svg"><img src="docs/assets/channel-access.svg" alt="Diagram channel access" width="440" /></a><br/><b>05 · Pencegahan collision</b><br/><a href="docs/COLLISION_CONTROL.md">CAD + backoff</a></td><td align="center"><a href="docs/assets/gateway-architecture.svg"><img src="docs/assets/gateway-architecture.svg" alt="Arsitektur core gateway" width="440" /></a><br/><b>06 · Arsitektur firmware</b><br/><a href="docs/ARCHITECTURE.md">Radio, web dan storage</a></td></tr></table>
 
-## Penjadwalan beberapa node
+Klik diagram untuk membuka SVG ukuran penuh. Di GitHub, gambar yang di-embed tidak selalu mendukung klik hotspot internal SVG; tautan, daftar isi dan panel yang dapat dibuka-tutup di Markdown adalah navigasi utamanya.
 
-Interval pengiriman berkala diatur dari firmware atau halaman konfigurasi masing-masing node. Misalnya empat node sama-sama memakai interval satu jam, waktu kirimnya belum tentu berbeda karena perangkat memiliki jam, waktu boot, dan kondisi radio masing-masing. Gateway tidak boleh menganggap interval tersebut sebagai jadwal TDMA. Sistem menggunakan prioritas ACK, pembatasan airtime, urutan pengiriman bergiliran, randomized backoff dari sisi node, serta Channel Activity Detection (CAD) non-blocking sebelum gateway mengirim POLL. Jika kanal sibuk, POLL ditunda memakai nomor urut dan sesi yang sama sehingga tidak menciptakan request duplikat. Bila data valid tidak diterima selama satu jam ditambah waktu toleransi, gateway dapat mengirim permintaan penyegaran berprioritas rendah. Permintaan gagal tidak langsung dikirim berulang-ulang. Detailnya dijelaskan pada [dokumen desain radio](docs/RADIO_DESIGN.md), termasuk hal-hal yang tetap harus diuji menggunakan perangkat fisik.
+## Struktur project sesuai PlatformIO VS Code
 
-Setiap node mempunyai kombinasi network ID, node ID, dan HMAC key tersendiri. Kapasitas inventori firmware saat ini adalah 16 node, tetapi jumlah itu tidak berarti 16 perangkat pasti dapat berkomunikasi tanpa gangguan di dalam pabrik. Kualitas antena, kondisi tembok, konfigurasi SF/bandwidth, lalu lintas paket, dan airtime perlu diuji di lokasi. HMAC digunakan untuk autentikasi, bukan mengenkripsi nilai energi. Karena itu, data sensitif maupun kredensial perusahaan tidak boleh dimasukkan ke payload radio atau repository.
+**Buka folder `esp32-modbus-energy-gateway/firmware/` di VS Code**, bukan folder root repository. File `platformio.ini` berada **di dalam `firmware/`**, dan PlatformIO otomatis mengenali folder `src/` serta `include/`.
 
-Metode tersebut mengurangi collision dari sisi downlink gateway, tetapi tidak dapat menjamin dua uplink node yang tidak saling mendengar akan bebas collision. Penjadwalan TDMA yang benar memerlukan perubahan protokol serta sinkronisasi waktu pada kedua firmware; itu tidak dilakukan karena repository node harus tetap utuh. Rincian batasan dan pengujiannya ada di [dokumen pengendalian collision](docs/COLLISION_CONTROL.md).
-
-## Perangkat, build, dan pengujian
-
-![Wiring gateway ESP32-C3 dan modul SX1262 Ra-01SH](docs/assets/wiring-c3.svg)
-
-![Struktur root project PlatformIO di VS Code](docs/assets/platformio-layout.svg)
-
-Gateway menggunakan `platformio.ini` pada root repository, environment `esp32c3`, dan board `esp32-c3-devkitm-1`. Versi pioarduino `55.03.311`, RadioLib `7.8.1`, dan ArduinoJson `7.3.1` sengaja sama dengan versi package node ESP32-S3. Ikuti [panduan PlatformIO/VS Code](docs/PLATFORMIO_VSCODE.md) supaya tidak salah membuka folder `firmware/` sebagai project root.
-
-Acuan awal gateway adalah **ESP32-C3-DevKitM-1** dengan modul **SX1262 Ra-01SH V1.1**. Pastikan jalur SPI, DIO1, BUSY, RESET, pengaturan RF switch, dan jenis oscillator sesuai board yang benar-benar dibeli. Saat awal digunakan, radio masih nonaktif dan daftar node kosong. Jaringan AP commissioning serta kode akses halaman web dicetak ke Serial Monitor pada 115200 baud. Alamat dashboard lokal adalah `http://192.168.4.1`. Kata sandi AP pemulihan node adalah konfigurasi tersendiri dalam repository node dan tidak diubah oleh pekerjaan gateway ini.
-
-Perintah build dari root repository, menggunakan Python, PlatformIO, dan compiler C++:
-
-```sh
-python tools/check_compatibility.py
-python tools/check_wiring.py
-python tools/test_native.py
-python -m platformio run -e esp32c3
+```text
+esp32-modbus-energy-gateway/
+├── firmware/                 ← OPEN FOLDER DI VS CODE
+│   ├── platformio.ini         ← [env:esp32c3]
+│   ├── partitions.csv         ← partisi flash ESP32-C3
+│   ├── src/                   ← file C++ yang dikompilasi
+│   │   ├── main.cpp
+│   │   ├── app/  core/  radio/  storage/  web/
+│   ├── include/               ← header dan aset dashboard
+│   │   ├── app/  board/  core/  storage/  web/
+│   └── .vscode/               ← rekomendasi extension
+├── dashboard/                 ← React + JavaScript
+├── docs/                      ← dokumentasi dan SVG
+├── tests/                     ← pengujian C++ native
+└── tools/                     ← script QA dan packaging
 ```
 
-Untuk membangun dashboard lokal, masuk ke direktori `dashboard/`, kemudian jalankan `npm ci`, `npm run build`, dan `npm test` dengan Node.js 22. Aset hasil build dimasukkan ke firmware melalui `firmware/web/assets.h`, sehingga firmware sebaiknya dikompilasi setelah dashboard dibangun. Jangan mengunggah filesystem image baru ke perangkat berisi arsip pengukuran tanpa memeriksa konsekuensi penghapusan datanya.
+<details open>
+<summary><b>Build di VS Code / PlatformIO</b></summary>
 
-### Frekuensi radio untuk Indonesia
+Instal extension **PlatformIO IDE**, pilih **File → Open Folder → firmware**, lalu **PROJECT TASKS → esp32c3 → Build**. Board gateway yang ditentukan adalah `esp32-c3-devkitm-1` (4 MB flash tanpa PSRAM), sedangkan node menggunakan `esp32-s3-devkitc-1`. Platform pioarduino `55.03.311`, RadioLib `7.8.1` dan ArduinoJson `7.3.1` sama pada kedua firmware.
 
-**Jangan langsung mengaktifkan transmitter pada frekuensi bawaan 915 MHz** untuk instalasi LPWAN di Indonesia. Dalam ketentuan izin kelas 2025, pita LPWAN tercantum pada 920–923 MHz dengan duty cycle maksimum 1% untuk uplink dan downlink. Atur frekuensi yang sama, misalnya 921 MHz, pada pengaturan lokal node dan gateway sebelum radio diaktifkan; repository node tidak perlu diubah. Daya EIRP termasuk pengaruh gain antena dan loss kabel, sehingga angka TX power di firmware saja tidak cukup untuk menyatakan alat patuh regulasi. Lihat [checklist RF Indonesia](docs/RF_COMPLIANCE_ID.md).
+```powershell
+# Terminal dari dalam folder firmware/
+python -m platformio run -e esp32c3
+python -m platformio device list
+python -m platformio device monitor --baud 115200
 
-## Batasan implementasi
+# Atau dari root repository gateway
+python -m platformio run --project-dir firmware -e esp32c3
+python tools/test_native.py
+python tools/check_compatibility.py
+python tools/check_wiring.py
+```
 
-Sistem ini dirancang sebagai alat monitoring lokal, bukan layanan yang dibuka langsung ke Internet. Autentikasi dashboard masih menggunakan kode commissioning, komunikasi web masih HTTP, dan gateway belum mempunyai RTC tepercaya ataupun integrasi database pusat. Uji kode dan simulasi paket bisa membuktikan konsistensi logika, tetapi belum menggantikan pengujian LoRa, pembacaan meter asli, serta jangkauan pada lingkungan pabrik. Lihat [panduan commissioning](docs/COMMISSIONING.md), [hasil verifikasi](docs/VERIFICATION.md), dan [aturan kebersihan repository](tools/security_audit.py) sebelum menerapkan build baru.
+Untuk dashboard, masuk `dashboard/`, jalankan `npm ci`, `npm run build`, dan `npm test` sebelum kompilasi firmware bila ada perubahan antarmuka.
 
-### Paket firmware dan keamanan flash
+</details>
 
-Setelah build firmware dan image LittleFS khusus instalasi awal, jalankan `python tools/package.py` lalu `python tools/package.py --verify` untuk membuat paket ZIP yang diverifikasi menggunakan SHA256. File ELF tidak disertakan dalam paket publik karena berpotensi memuat path folder dari komputer yang mengompilasi firmware. Image `littlefs.bin` **hanya untuk provisioning pertama**, bukan update rutin. Jangan sampai update firmware menghapus partisi `gw_nvs` yang menyimpan ledger sequence LoRa atau partisi `archives` yang menyimpan checkpoint. ZIP hasil CI tersedia sebagai workflow artifact dan tidak dimasukkan ke commit repository.
+<details>
+<summary><b>Parameter radio dan daya default</b></summary>
+
+| Parameter | Nilai referensi |
+| --- | --- |
+| Perangkat gateway | ESP32-C3-DevKitM-1 |
+| Transceiver | SX1262 Ra-01SH V1.1 |
+| Frekuensi default | **915 MHz** |
+| Bandwidth / spreading factor | 125 kHz / SF7 |
+| Coding rate / preamble | 4/5 / 8 |
+| Sync word | 0x12 |
+| TX power default | **14 dBm** |
+| Rentang power perangkat lunak | 0–22 dBm |
+| Network / Gateway ID | 1 / 1 |
+| Jumlah entri inventory | Maksimum 16 |
+
+Nilai 14 dBm di pengaturan adalah daya keluaran radio, **bukan EIRP sistem**. Gain antena Moxon dan rugi kabel RF memengaruhi EIRP. Parameter bisa dikonfigurasi secara lokal pada kedua perangkat. [Referensi teknis dan aturan RF](docs/RF_COMPLIANCE_ID.md) tetap dipisah dari default source.
+
+</details>
+
+<details>
+<summary><b>Bagaimana collision ditangani?</b></summary>
+
+Paket dari setiap node memakai Network ID, Node ID dan kunci HMAC sendiri. Node melakukan contention awal, CAD sebelum uplink, retry/backoff jika kanal sibuk, dan tetap membatasi airtime. Gateway memprioritaskan ACK, mencadangkan antrean ACK, menggunakan satu radio owner, dan melakukan CAD sebelum POLL. Paket yang tertunda mempertahankan `session` dan `sequence` semula agar tidak menimbulkan pengulangan transaksi yang tidak terdeteksi.
+
+**Bukan TDMA**: dua node tersembunyi tetap dapat memulai transmisi secara bersamaan. Pengujian fisik antena, lokasi panel, jarak dan interferensi diperlukan. [Desain collision control](docs/COLLISION_CONTROL.md) menjelaskan batas serta skenario pengujiannya.
+
+</details>
+
+<details>
+<summary><b>Data kWh, keamanan dan flash</b></summary>
+
+Angka **Request live** adalah hasil pengukuran terakhir yang disimpan node; belum berarti node menjalankan Modbus FC03 baru. Nilai valid terakhir tidak ditimpa nol jika kiriman baru invalid. Radio ACK berbeda dengan bukti arsip sudah tersimpan. Gateway menyimpan sequence ledger di partisi `gw_nvs` (0xE000), aplikasi di 0x20000 dan arsip di 0x220000. **Jangan jalankan `uploadfs` sebagai update rutin** karena dapat menimpa data arsip.
+
+</details>
+
+## Dokumentasi lanjutan
+
+[Panduan instalasi](docs/COMMISSIONING.md) · [Wiring hardware](docs/HARDWARE.md) · [Arsitektur](docs/ARCHITECTURE.md) · [Desain radio](docs/RADIO_DESIGN.md) · [Kompabilitas node](docs/NODE_COMPATIBILITY.md) · [Validasi](docs/VERIFICATION.md) · [Lisensi](LICENSE)
+
+Firmware node companion: [PR #5 (CAD PTMP)](https://github.com/gedxxe/esp32-modbus-energy/pull/5). Firmware gateway dan node harus sama-sama melalui uji RF fisik sebelum digunakan untuk monitoring operasional.
+
+---
+<sub>Midea Engineering · Diagram bersifat referensi teknis. Performa RF dan keamanan pemasangan perlu diverifikasi menggunakan perangkat fisik.</sub>

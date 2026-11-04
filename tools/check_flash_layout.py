@@ -2,7 +2,7 @@
 from pathlib import Path
 import json,struct
 root=Path(__file__).resolve().parent.parent
-build=root/'.pio/build/esp32c3'
+build=root/'firmware/.pio/build/esp32c3'
 layout=json.loads((build/'flash-layout.json').read_text(encoding='utf-8'))
 assert layout['app_offset']==0x20000 and layout['app_capacity']==0x200000
 assert layout['boot_app0_removed']

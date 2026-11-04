@@ -1,3 +1,7 @@
+<p align="left"><img src="assets/midea-brand.svg" alt="Midea" width="185" /></p>
+
+![PlatformIO](assets/badges/platformio.svg) ![Protocol](assets/badges/protocol.svg) ![Board](assets/badges/board.svg)
+
 # Architecture decisions
 
 ## D001 — First target and scope
@@ -6,7 +10,7 @@ ESP32-C3 supersedes the initial brief's C6 target by explicit user correction. U
 
 ## D002 — Protocol and evidence
 
-Use the node source at 770512260ef5133296790ee21d2635c55f00196f (3.5.0) as the current protocol reference; keep the earlier 3.4.3 vector hashes as historical provenance. Validate production codec against its public vector and source behavior. Software tests and RF commissioning are separate acceptance stages.
+Use the unmodified node **main** source at 737cfff590c0cbea33895df17c3e3ffc06449e15 (3.5.0) as the current protocol reference; keep the earlier 3.4.3 vector hashes as historical provenance. Validate production codec against its public vector and source behavior. Software tests and RF commissioning are separate acceptance stages.
 
 ## D003 — Local UI
 
@@ -35,3 +39,11 @@ Inspection of actual build output showed pinned pioarduino55.03.311 selects the 
 ## D009 — Per-ID cards and honest link observations
 
 UI0.1.1 follows the owner's card-grid sketch, using the existing16-entry NVS inventory instead of adding another store. New IDs get an unused address suggestion; form saves keep the revision captured at opening to reject stale edits. Per-node last authenticated packet/type/sequence, unique accepted and duplicate counters are additive key-free HTTP diagnostics, with no radio or storage format changes. A duplicate updates RF observation age but never refreshes measurement time. Data freshness, candidate/confirmed sessions and signal observations remain separate; no invented packet-loss score or fixed offline timeout is inferred from unknown node intervals. One shared status request refreshes all cards; browser monotonic age updates add no radio traffic or flash writes.
+
+## D010 — Standard VS Code PlatformIO workspace
+
+The ESP32-C3 project root is `firmware/`, not the Git repository root. PlatformIO's standard `src/` and `include/` folders contain runtime code and headers; `firmware/.vscode/` stores project settings. Documentation, Python host validation, React dashboard and package tooling remain in separate repository-root folders. This matches the physical workflow used by the ESP32-S3 meter node.
+
+## D011 — Same v1 protocol, dual-endpoint CAD
+
+A separately reviewed ESP32-S3 node branch adds nonblocking SX1262 CAD and randomized backoff before uplinks. The gateway already performs CAD before discretionary POLLs, preserves downlink sequence identity across deferrals, and reserves TX queue slots for ACKs. We keep Energy Station v1 framing and 915 MHz software defaults unchanged. CAD cannot eliminate hidden-terminal collisions or provide deterministic slots without a new joint time-synchronization protocol.

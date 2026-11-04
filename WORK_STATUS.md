@@ -1,8 +1,12 @@
+<p align="left"><img src="docs/assets/midea-brand.svg" alt="Midea" width="185" /></p>
+
+![Gateway](docs/assets/badges/firmware.svg) ![C3](docs/assets/badges/board.svg) ![Protocol v1](docs/assets/badges/protocol.svg)
+
 # Gateway development status
 
 ## Baseline and scope
 
-Gateway work is based on `gedxxe/esp32-modbus-energy-gateway`, with the upstream `gedxxe/esp32-modbus-energy` firmware used only as a read-only protocol reference. The upstream node at main commit `770512260ef5133296790ee21d2635c55f00196f` uses Energy Station radio protocol v1 and firmware version 3.5.0. The gateway remains a separate ESP32-C3 / SX1262 application. No changes to the node's Modbus register reading, operating settings or public recovery AP password are part of this gateway work.
+Gateway work is based on `gedxxe/esp32-modbus-energy-gateway`, with the upstream `gedxxe/esp32-modbus-energy` firmware used as a read-only **main-branch** protocol baseline; the companion [node PR #5](https://github.com/gedxxe/esp32-modbus-energy/pull/5) proposes a separate CAD update. The upstream node at main commit `737cfff590c0cbea33895df17c3e3ffc06449e15` uses Energy Station radio protocol v1 and firmware version 3.5.0. The gateway remains a separate ESP32-C3 / SX1262 application. No changes to the node's Modbus register reading, operating settings or public recovery AP password are part of this gateway work.
 
 ## Implemented in source
 
@@ -17,3 +21,9 @@ Keep personal paths, authentication material, compiled ELF files, local cache di
 ## PTMP PlatformIO re-audit (2026-11-05)
 
 New gateway-only draft PR #2 pins the latest inspected read-only node commit `737cfff590c0cbea33895df17c3e3ffc06449e15`. The ESP32-C3 gateway and ESP32-S3 node share pioarduino 55.03.311, RadioLib 7.8.1, ArduinoJson 7.3.1 and Energy Station v1. The C3 board is `esp32-c3-devkitm-1` in the gateway root `platformio.ini`, and the purchased board/module must still be physically verified. Nonblocking SX1262 CAD and bounded randomized POLL backoff reduce gateway-originated interference but cannot prevent hidden-node simultaneous uplinks or provide TDMA. The generated SVG wiring/topology/request/build diagrams are checked by CI. A safe release ZIP deliberately excludes ELF symbols and old machine paths. All hardware RF/PTMP acceptance remains open and no node repository changes were made.
+
+## PlatformIO workspace redesign
+
+Gateway source has been reorganized into `firmware/src/` and `firmware/include/`, with `firmware/platformio.ini`, `firmware/partitions.csv` and `firmware/.vscode/`. Open `firmware/` directly in VS Code. The radio default remains 915 MHz and 14 dBm configured TX. Cross-compile and CI tests remain separate from hardware RF acceptance.
+
+[View PlatformIO guide](docs/PLATFORMIO_VSCODE.md) · [CAD flow diagram](docs/assets/channel-access.svg) · [Wiring](docs/assets/wiring-c3.svg)

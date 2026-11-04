@@ -60,7 +60,7 @@ test("actual production gzip matches HTML and stays below 80 KiB", async () => {
   staticDom.window.close();
   assert.ok(!html.includes("<script src="));
   const assets = await readFile(
-    new URL("../../firmware/web/assets.h", import.meta.url),
+    new URL("../../firmware/include/web/assets.h", import.meta.url),
     "utf8",
   );
   const bytes = assets

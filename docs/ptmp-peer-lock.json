@@ -1,0 +1,18 @@
+{
+  "name": "ESP32-C3 gateway ↔ ESP32-S3 node companion for SX1262 CAD",
+  "wire_protocol": "Energy Station v1 (unchanged)",
+  "node_repository": "gedxxe/esp32-modbus-energy",
+  "baseline_main": "737cfff590c0cbea33895df17c3e3ffc06449e15",
+  "cad_companion_commit": "97d2749bf54d76ebbfefa2c286dcb0124a29beac",
+  "node_branch": "feature/lora-ptmp-anti-collision-20261105",
+  "gateway_branch": "refactor/platformio-layout-ptmp-20261105",
+  "gateway_board": "esp32-c3-devkitm-1",
+  "node_board": "esp32-s3-devkitc-1",
+  "frequency_hz": 915000000,
+  "output_power_dbm": 14,
+  "mechanism": {
+    "node": "nonblocking CAD before autonomous uplinks; bounded randomized backoff",
+    "gateway": "nonblocking CAD before POLL; ACK reservation"
+  },
+  "qualification": "Source and software integration only; physical RF/hidden-node collisions remain unverified"
+}

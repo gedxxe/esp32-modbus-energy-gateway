@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-source = (ROOT / "firmware/board/reference.h").read_text(encoding="utf-8")
+source = (ROOT / "firmware/include/board/reference.h").read_text(encoding="utf-8")
 nets = {
     "SCK": ("sck", "4", "12"),
     "MOSI": ("mosi", "6", "14"),
@@ -26,10 +26,16 @@ for signal, (symbol, gpio, pad) in nets.items():
 assert "tcxoVoltage = 0.0f" in source
 assert "dio2RfSwitch = true" in source
 for filename in ["wiring-c3.svg", "ptmp-topology.svg", "poll-sequence.svg",
-                 "platformio-layout.svg"]:
+                 "platformio-layout.svg", "channel-access.svg", "gateway-architecture.svg",
+                 "midea-brand.svg"]:
     file = ROOT / "docs/assets" / filename
     root = ET.parse(file).getroot()
     assert root.tag.endswith("svg") and root.attrib.get("viewBox"), filename
+badgeFiles = sorted((ROOT / "docs/assets/badges").glob("*.svg"))
+assert len(badgeFiles) >= 10
+for badge in badgeFiles:
+    element = ET.parse(badge).getroot()
+    assert element.tag.endswith("svg") and element.attrib.get("viewBox")
 for doc in ["README.md", "README.id.md", "docs/PLATFORMIO_VSCODE.md"]:
     assert (ROOT / doc).is_file()
 print("PASS: gateway board GPIO, module pads, SVG diagrams and document links verified")

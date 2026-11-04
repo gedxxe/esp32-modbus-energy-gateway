@@ -1,60 +1,111 @@
-# Midea Engineering — LoRa Power Monitoring Gateway
+<p align="center"><img src="docs/assets/midea-brand.svg" alt="Midea" width="240" /></p>
 
-[Bahasa Indonesia](README.id.md) · [PlatformIO / VS Code](docs/PLATFORMIO_VSCODE.md) · [C3 wiring](docs/HARDWARE.md) · [Medium access / collisions](docs/COLLISION_CONTROL.md) · [Node protocol](docs/NODE_COMPATIBILITY.md)
+<h1 align="center">Energy Station · LoRa PTMP Gateway</h1>
+<p align="center">ESP32-C3 + SX1262 · authenticated Modbus-energy telemetry · offline web dashboard</p>
 
-This project is the receiver for the [ESP32 power-meter node](https://github.com/gedxxe/esp32-modbus-energy). The node reads a meter over Modbus RTU, validates the reading and applies the meter's PT/CT ratios. This ESP32-C3 gateway listens for authenticated LoRa frames and exposes the received values on a local dashboard. The two repositories share the **Energy Station protocol v1**, not a shared firmware image. The node repository is the authoritative source for the radio packet format. Changes in this repository do not remotely update any node.
+<p align="center">
+<img src="docs/assets/badges/board.svg" alt="ESP32-C3 board" height="25" />
+<img src="docs/assets/badges/platformio.svg" alt="PlatformIO 6.1.19" height="25" />
+<img src="docs/assets/badges/protocol.svg" alt="Energy Station LoRa v1" height="25" />
+<img src="docs/assets/badges/firmware.svg" alt="Gateway 0.3.0-rc1" height="25" />
+</p>
+<p align="center">
+<img alt="C++17" src="https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white&style=flat-square" />
+<img alt="Arduino" src="https://img.shields.io/badge/Arduino-ESP32%203.3.11-00878F?logo=arduino&logoColor=white&style=flat-square" />
+<img alt="JavaScript" src="https://img.shields.io/badge/JavaScript-ES2020-F7DF1E?logo=javascript&logoColor=black&style=flat-square" />
+<img alt="React" src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black&style=flat-square" />
+<img alt="License" src="https://img.shields.io/badge/License-GPL--3.0-555?style=flat-square" />
+<img alt="GitHub stars" src="https://img.shields.io/github/stars/gedxxe/esp32-modbus-energy-gateway?style=flat-square" />
+</p>
 
-![ESP32-C3 gateway with multiple ESP32-S3 meter nodes](docs/assets/ptmp-topology.svg)
+<p align="center"><a href="README.id.md">Bahasa Indonesia</a> · <a href="docs/PLATFORMIO_VSCODE.md">PlatformIO / VS Code</a> · <a href="docs/COMMISSIONING.md">Commissioning</a> · <a href="docs/COLLISION_CONTROL.md">Collision control</a> · <a href="https://github.com/gedxxe/esp32-modbus-energy">ESP32-S3 node</a></p>
 
-The receiver is currently built for **ESP32-C3-DevKitM-1**, not the ESP32-C6 gateway mentioned in older node documentation. The node firmware remains unchanged.
+## What this firmware does
 
-## Reading power-meter data
+The ESP32-C3 receives **authenticated Energy Station protocol v1** packets from multiple ESP32-S3 power-meter nodes over SX1262 LoRa. Each node acquires Modbus RTU data over its own RS485 bus, validates the reading and applies CT/PT scaling **at the node**. The gateway does **not** scale energy again: it correlates packets, checks HMAC and replay windows, preserves the last valid kWh and archives validated capture records. A browser connects to the local Wi-Fi access point for monitoring and commissioning. Each inventory entry has its own network/node ID and 32-byte key.
 
-The dashboard keeps the last valid kWh reading visible with its source timestamp, receive age, meter profile, inventory ID and radio link status. A reading becomes **stale** as time passes, but the value is not erased or replaced by zero. A valid LoRa payload already contains scaled engineering kWh; the gateway **must never multiply by PT/CT again**. The current protocol does not transmit a full register map or every electrical measurement. Other parameters should be added only through a versioned change agreed by both node and gateway; inventing fields in the gateway would produce misleading data.
+The radio uses **one shared half-duplex channel**. The gateway prioritizes acknowledgments and performs nonblocking SX1262 CAD before discretionary POLLs. A companion node firmware update adds CAD before node uplinks. Both sides use bounded random backoff, but **hidden-node collisions remain possible**. No false claims of collision-free TDMA, guaranteed 16-node throughput, or field acceptance are made.
 
-The operator can click **Request live** for a particular node. This asks the node to send the most recent Modbus-derived sample it currently holds; it does not command a new RS485 register transaction. The gateway sends an authenticated LoRa `POLL` with mode 0, and the node responds with a `TELEMETRY` frame containing the matching request sequence. This is an application-level request/response exchange, similar in intent to a read-only HTTP GET, but it is not HTTP transported over LoRa. The request is queued, then transmitted subject to the radio duty cycle and other pending packets. The dashboard distinguishes a queued request, an outstanding response, a received measurement and a timeout; merely accepting the HTTP command is not proof that the meter was read.
+## Explore the system
 
-![Manual LoRa POLL request and correlated TELEMETRY response](docs/assets/poll-sequence.svg)
+<table><tr><td width="50%" align="center"><a href="docs/assets/ptmp-topology.svg"><img src="docs/assets/ptmp-topology.svg" alt="LoRa PTMP node-to-gateway topology" width="450" /></a><br /><b>01 · PTMP topology</b><br /><a href="docs/NODE_COMPATIBILITY.md">Protocol and peer firmware</a></td><td width="50%" align="center"><a href="docs/assets/wiring-c3.svg"><img src="docs/assets/wiring-c3.svg" alt="ESP32-C3 to SX1262 wiring" width="450" /></a><br /><b>02 · C3 wiring</b><br /><a href="docs/HARDWARE.md">GPIO, module pads and power</a></td></tr><tr><td align="center"><a href="docs/assets/poll-sequence.svg"><img src="docs/assets/poll-sequence.svg" alt="Telemetry and POLL sequence" width="450" /></a><br /><b>03 · Request / response</b><br /><a href="docs/RADIO_DESIGN.md">Scheduling and correlation</a></td><td align="center"><a href="docs/assets/platformio-layout.svg"><img src="docs/assets/platformio-layout.svg" alt="VS Code PlatformIO project tree" width="450" /></a><br /><b>04 · PlatformIO workspace</b><br /><a href="docs/PLATFORMIO_VSCODE.md">Open firmware/ and build</a></td></tr><tr><td align="center"><a href="docs/assets/channel-access.svg"><img src="docs/assets/channel-access.svg" alt="SX1262 channel access" width="450" /></a><br /><b>05 · Collision-aware access</b><br /><a href="docs/COLLISION_CONTROL.md">CAD, retries and limitations</a></td><td align="center"><a href="docs/assets/gateway-architecture.svg"><img src="docs/assets/gateway-architecture.svg" alt="Gateway firmware architecture" width="450" /></a><br /><b>06 · Core architecture</b><br /><a href="docs/ARCHITECTURE.md">Radio/storage/web ownership</a></td></tr></table>
 
-## One gateway, several nodes
+*Each preview opens the full SVG. The SVG files contain linked sections for viewers supporting embedded links; GitHub's inline image renderer may disable those links. The expandable sections below work directly in GitHub Markdown.*
 
-A node can be configured locally to transmit once every hour. Because LoRa is half-duplex, simultaneous uplinks can interfere; assigning a one-hour interval to all nodes does **not** give each of them a guaranteed time slot. The gateway gives ACK frames priority, limits its own airtime, uses round-robin ordering for queued transmissions, checks channel activity with nonblocking SX1262 CAD before POLLs, applies bounded randomized backoff when the channel is busy, and does not start several stale-data POLLs together. If no valid update arrives for an hour plus a grace period, it can issue a low-priority refresh request. Unsuccessful automatic requests are rate-limited. These controls reduce congestion but are not TDMA and cannot eliminate collisions caused by independent transmitters. Full airtime and recovery assumptions are recorded in [radio design](docs/RADIO_DESIGN.md).
+## VS Code / PlatformIO — open the correct folder
 
-Each node must have a distinct radio ID and its own 32-byte HMAC key. The gateway supports up to 16 inventory entries, which is a storage limit rather than a radio capacity guarantee. Keys are configured locally, never sent in LoRa packets and are not returned through the dashboard API. LoRa payloads are authenticated but **not encrypted**; they should not contain personal data. Local checkpoint archives remain separate from the latest telemetry and are verified before being stored.
+**Select `esp32-modbus-energy-gateway/firmware/` using File → Open Folder.** The `platformio.ini` is **inside this folder**, exactly like the ESP32-S3 node. Do not open the repository root as the PlatformIO project.
 
-For the actual contention assumptions, hidden-terminal limitations, and fault counters, see [the medium-access design](docs/COLLISION_CONTROL.md). No gateway-only change can synchronize autonomous S3 transmitters into TDMA slots.
-
-## Hardware and setup
-
-![ESP32-C3 GPIO wiring to the SX1262 Ra-01SH module](docs/assets/wiring-c3.svg)
-
-![PlatformIO root folder, firmware modules and dashboard build flow](docs/assets/platformio-layout.svg)
-
-The root `platformio.ini` configures `[env:esp32c3]`, with `board = esp32-c3-devkitm-1`. It uses the same pinned **pioarduino 55.03.311, RadioLib 7.8.1 and ArduinoJson 7.3.1** as the read-only ESP32-S3 node reference. See [PlatformIO instructions for VS Code](docs/PLATFORMIO_VSCODE.md) and run `python tools/check_compatibility.py` before building. The two MCUs are different by design; do not flash the node binary to the gateway.
-
-The reference hardware is an **ESP32-C3-DevKitM-1 with an SX1262 Ra-01SH V1.1**. This is a board-specific reference, not a claim that an unknown module will work without checking wiring, RF-switch configuration and oscillator supply. The gateway starts with radio disabled and no enrolled nodes. The local commissioning AP and access code are announced on the Serial Monitor at 115200 baud, while the dashboard is served at `http://192.168.4.1`. The node's published recovery AP password remains a separate node-firmware setting; the gateway's commissioning credentials are not interchangeable with that password.
-
-From the repository root, with Python 3, PlatformIO Core and a C++ compiler available:
-
-```sh
-python tools/check_compatibility.py
-python tools/check_wiring.py
-python tools/test_native.py
-python -m platformio run -e esp32c3
+```text
+esp32-modbus-energy-gateway/
+├── firmware/               ← OPEN THIS FOLDER IN VS CODE
+│   ├── platformio.ini       ← [env:esp32c3]
+│   ├── partitions.csv       ← 4 MB ESP32-C3 flash
+│   ├── src/                 ← PlatformIO automatically compiles *.cpp recursively
+│   │   ├── main.cpp
+│   │   ├── app/  core/  radio/  storage/  web/
+│   ├── include/             ← headers and bundled offline dashboard
+│   │   ├── app/  board/  core/  storage/  web/
+│   └── .vscode/             ← recommended extension + IntelliSense
+├── dashboard/               ← React source, tests, asset generator
+├── docs/                    ← SVG diagrams + hardware/protocol guides
+├── tests/                   ← production-core host tests
+└── tools/                   ← host-only QA, package and flash guard
 ```
 
-To build the locally bundled dashboard, use Node.js 22 and run `npm ci`, `npm run build` and `npm test` inside `dashboard/`. The build regenerates `firmware/web/assets.h`; build the firmware **after** generating the dashboard. Normal firmware updates should not overwrite a device's archive partition. See [commissioning](docs/COMMISSIONING.md) before flashing or clearing flash.
+<details open>
+<summary><b>Build / upload from VS Code</b></summary>
 
-### Indonesia RF commissioning
+Install **PlatformIO IDE** in VS Code, open the `firmware/` folder and select **PROJECT TASKS → esp32c3 → Build**. The project uses the Arduino framework, board `esp32-c3-devkitm-1`, pinned pioarduino `55.03.311`, RadioLib `7.8.1` and ArduinoJson `7.3.1`. Upload only after identifying the correct serial port and checking wiring, voltage and antenna. The source node project uses the different `esp32-s3-devkitc-1` target.
 
-**Do not transmit on the shared 915 MHz software default at an Indonesian LPWAN installation.** The authoritative 2025 Indonesian LPWAN class-license table specifies 920–923 MHz and a 1% uplink/downlink duty cycle. Before enabling radio, use the existing local settings interfaces to configure the same authorized carrier (for example 921 MHz), bandwidth and PHY on the node and gateway; the node source repository is not changed. Antenna gain must be included in EIRP, and hardware certification remains necessary. See [Indonesia RF deployment checklist](docs/RF_COMPLIANCE_ID.md).
+```powershell
+# From inside the firmware/ folder
+python -m platformio run -e esp32c3
+python -m platformio device list
+python -m platformio device monitor --baud 115200
 
-## Security and acceptance
+# Equivalent from the repository root
+python -m platformio run --project-dir firmware -e esp32c3
+python tools/test_native.py
+python tools/check_compatibility.py
+python tools/check_wiring.py
+```
 
-This is a local engineering installation, not an Internet-exposed service. The dashboard uses HTTP on a controlled AP and a temporary commissioning access code. At-rest flash encryption, a trusted gateway RTC, cloud synchronization and a managed multi-user login system are not provided. Host software tests and ESP32 compilation do not prove radio range, collision-free operation or accurate readings on a particular meter. The final acceptance procedure must include a real node, gateway and antenna installed at the intended locations. Repository hygiene checks are in `tools/security_audit.py`; local workstation paths, provisioning keys, compiled ELF files and temporary build output do not belong in Git.
+</details>
 
-[Source layout](docs/ARCHITECTURE.md) · [Validation](docs/VERIFICATION.md) · [Hardware](docs/HARDWARE.md) · [Licenses](NOTICE)
+<details>
+<summary><b>Radio identity, PHY and PTMP assumptions</b></summary>
 
-### Build artifacts and safe release
+| Setting | Gateway reference default | Notes |
+| --- | --- | --- |
+| MCU | ESP32-C3-DevKitM-1 | 4 MB, no PSRAM |
+| Module | Ai-Thinker Ra-01SH V1.1, SX1262 | Crystal; DIO2 RF switch |
+| Carrier | **915 MHz** | Configurable on both endpoints; verify authorization for the site |
+| Bandwidth / SF / coding | 125 kHz / SF7 / 4/5 | Must match all nodes |
+| Preamble / logical sync | 8 / 0x12 | Explicit header, CRC and normal IQ |
+| Configured TX power | **14 dBm** | Software range 0–22 dBm; conducted power is not EIRP |
+| IDs | Network 1 / gateway 1 | Node IDs must be different and unique |
+| Inventory | Up to 16 nodes | Hardware/load capacity must be measured |
+| Wire protocol | Energy Station v1 | 24-byte header + payload ≤112 + 16-byte truncated HMAC |
 
-To produce a checked source-and-flash-image package, build both firmware and the **first-provisioning-only** LittleFS image, then run `python tools/package.py` and `python tools/package.py --verify`. The ZIP intentionally **excludes the ELF debugger file** because it can contain absolute workstation paths. A release manifest is generated from the exact Git revision and actual image bytes, not old test statistics. Normal firmware updates must preserve the `gw_nvs` sequence ledger and the `archives` LittleFS partition; never upload the blank LittleFS image to an operational gateway. CI publishes the packaged ZIP as a downloadable workflow artifact, not as a committed binary. See [PlatformIO/VS Code workflow](docs/PLATFORMIO_VSCODE.md).
+The 915 MHz carrier and 14 dBm are the actual source defaults. A Moxon antenna changes EIRP through its gain and cable losses; calculate measured compliance separately in [RF engineering reference](docs/RF_COMPLIANCE_ID.md).
+
+</details>
+
+<details>
+<summary><b>Data semantics and safety</b></summary>
+
+**Request live** asks for the node's most recently available measurement; protocol v1 does not command a new Modbus FC03 transaction. A stale value keeps the last valid kWh with its age. Missing or invalid energy is **not zero**. A radio ACK means the receiver accepted the packet; it does **not** prove checkpoint persistence. Local HTTP and boot commissioning access are for a controlled network, not Internet exposure.
+
+**Flash safety:** `gw_nvs` at 0xE000 contains a persistent POLL sequence ledger. The factory application starts at 0x20000. The archives partition starts at 0x220000. **Do not use `uploadfs` for routine firmware upgrades**: it can overwrite saved checkpoints. The checked release ZIP excludes ELF debugger output to avoid embedding machine paths.
+
+</details>
+
+## Validation and source references
+
+The gateway [CI workflow](.github/workflows/ci.yml) verifies the C3 PlatformIO build, source-level node protocol compatibility, firmware/native tests, the bundled React app, generated SVG integrity, and flash-image layout. The node-side CAD development is tracked separately in [node PR #5](https://github.com/gedxxe/esp32-modbus-energy/pull/5). Both PRs require physical multi-radio commissioning before being treated as an industrial deployment.
+
+[Architecture](docs/ARCHITECTURE.md) · [Power / wiring](docs/HARDWARE.md) · [Protocol](docs/NODE_COMPATIBILITY.md) · [Radio strategy](docs/RADIO_DESIGN.md) · [RF reference](docs/RF_COMPLIANCE_ID.md) · [CI evidence](docs/VERIFICATION.md) · [License](LICENSE)
+
+---
+<sub>Midea Engineering — independent source review and validation. Hardware measurements, interference performance and RF authorization are deployment-specific.</sub>

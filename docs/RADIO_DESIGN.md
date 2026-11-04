@@ -1,6 +1,15 @@
+<p align="left"><img src="assets/midea-brand.svg" alt="Midea" width="185" /></p>
+
+![C3](assets/badges/board.svg) ![LoRa](assets/badges/protocol.svg) ![RadioLib](assets/badges/radiolib.svg)
+
+
 # Radio architecture and refresh scheduling
 
-This document describes the current LoRa application protocol and the gateway scheduling policy. The upstream [ESP32 Modbus power-meter firmware](https://github.com/gedxxe/esp32-modbus-energy) defines the wire format. Only the gateway implementation is changed here. The present system is an authenticated point-to-multipoint network using raw LoRa, not LoRaWAN, an IP network or TDMA. An operator clicking **Request live** is asking the gateway to send a read-only request to a node; it is not a Modbus register request forwarded through the radio. The node remains responsible for all meter communication.
+This document describes the current LoRa application protocol and the gateway scheduling policy. The upstream [ESP32 Modbus power-meter firmware](https://github.com/gedxxe/esp32-modbus-energy) defines the wire format. A companion ESP32-S3 node PR adds nonblocking SX1262 CAD before uplinks; the Energy Station v1 packet contract remains unchanged. The present system is an authenticated point-to-multipoint network using raw LoRa, not LoRaWAN, an IP network or TDMA. An operator clicking **Request live** is asking the gateway to send a read-only request to a node; it is not a Modbus register request forwarded through the radio. The node remains responsible for all meter communication.
+
+[Collisions](COLLISION_CONTROL.md) · [Node compatibility](NODE_COMPATIBILITY.md) · [Commissioning](COMMISSIONING.md)
+
+<a href="assets/poll-sequence.svg"><img src="assets/poll-sequence.svg" width="100%" alt="Gateway request/response sequence" /></a>
 
 ## End-to-end data flow
 
@@ -30,7 +39,7 @@ The upstream node supports a configurable periodic interval from 30 seconds to o
 
 The gateway therefore applies a conservative complementary policy. It always prioritizes authentication and ACKs for incoming packets, and it orders queued transmissions fairly across configured nodes. It respects its own 1% airtime limit, with a single SPI/radio owner and bounded queues. Automatic refresh is a fallback rather than a second high-frequency reporting system. For a node with a valid recent energy reading, the gateway waits **one hour plus two minutes** after its last received telemetry. If that time has passed without a successful new report, it can queue a POLL mode 0. Requests for different nodes are separated by at least **45 seconds**, and an attempted automatic request cannot be repeated for the same node within **five minutes**. If the latest report did not contain valid energy, the gateway uses the shorter five-minute retry threshold, still subject to one pending request at a time. The gateway skips automatic requests when another POLL, a session challenge, an archive transfer, queued TX work or the airtime gate is active. Manual requests and ACKs are therefore favored over automatic refresh.
 
-These constants are defined in `firmware/core/refresh_policy.h` and inspected through the status API as `autoRefreshIntervalMs`, `autoRefreshGraceMs`, `automaticPolls` and `automaticPollErrors`. This is **round-robin stale-data polling with backoff**, not TDMA, frequency hopping or guaranteed latency. The 1% limit is a conservative budget used by the firmware scheduler, not a guarantee that the selected frequency, TX power and airtime comply with every applicable Indonesian radio regulation. Antenna placement and local RF compliance must be checked before deployment.
+These constants are defined in `firmware/include/core/refresh_policy.h` and inspected through the status API as `autoRefreshIntervalMs`, `autoRefreshGraceMs`, `automaticPolls` and `automaticPollErrors`. This is **round-robin stale-data polling with backoff**, not TDMA, frequency hopping or guaranteed latency. The 1% limit is a conservative budget used by the firmware scheduler, not a guarantee that the selected frequency, TX power and airtime comply with every applicable Indonesian radio regulation. Antenna placement and local RF compliance must be checked before deployment.
 
 ## Session and replay safety
 
@@ -47,3 +56,9 @@ Software tests prove codec and scheduling behavior under modeled inputs. They do
 The current C3 gateway also performs SX1262 Channel Activity Detection before a discretionary POLL transmission. It uses the pinned RadioLib 7.8.1 interrupt-driven API rather than a blocking scan, and defers a POLL when LoRa activity is detected using a bounded randomized contention window. A deferred frame retains the same sequence number already reserved durably in the gateway; the system cannot accidentally allocate a second sequence for the same request. ACKs bypass CAD to keep response latency low, while remaining subject to the gateway's transmit airtime budget. Channel-busy, channel-clear, deferral and error counters are available in the status API. This addresses one avoidable source of downlink interference but **does not protect against hidden nodes or simultaneous node uplinks**. Full state-machine and acceptance details: [Collision control](COLLISION_CONTROL.md).
 
 ![Request / radio channel access sequence](assets/poll-sequence.svg)
+
+<details><summary><b>Node-side carrier sensing</b></summary>
+
+The companion node implementation uses RadioLib `startChannelScan()` / `getChannelScanResult()` before every autonomous uplink. A busy channel returns the node to RX and schedules bounded random exponential backoff without changing the outstanding frame sequence, session or HMAC. The gateway uses CAD only for lower-priority POLLs; ACKs bypass CAD but retain their airtime budget. Hidden-node collision, external interferers and physical RF range remain unverified. [Read the detailed medium-access design](COLLISION_CONTROL.md).
+
+</details>

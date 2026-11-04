@@ -1,14 +1,23 @@
+<p align="left"><img src="assets/midea-brand.svg" alt="Midea" width="185" /></p>
+
+![C3](assets/badges/board.svg) ![LoRa](assets/badges/protocol.svg) ![RadioLib](assets/badges/radiolib.svg)
+
+
 # Commissioning and recovery
+
+<a href="assets/wiring-c3.svg"><img src="assets/wiring-c3.svg" width="100%" alt="ESP32-C3 and SX1262 wiring" /></a>
+
+<details open><summary><b>Build and provisioning checklist</b></summary>
 
 This guide is an acceptance procedure, **not evidence that hardware testing has happened**. Current RF status is in WORK_STATUS.md. Start with one node, then three. Keep a copy of node/gateway configurations outside the device in the installation credential record; do not paste pairing keys into support logs.
 
 ## Build and first provisioning
 
-Use Python 3, PlatformIO Core 6.1.19, Node.js 22 and npm. See pinned versions in platformio.ini/package-lock.json. The reference uses a 4 MB ESP32-C3-DevKitM-1. Commands below are **host terminal INPUT**, from the gateway root unless stated otherwise:
+Use Python 3, PlatformIO Core 6.1.19, Node.js 22 and npm. Open `firmware/` in VS Code; pinned versions are in `firmware/platformio.ini` and `dashboard/package-lock.json`. The reference uses a 4 MB ESP32-C3-DevKitM-1. Commands below are **host terminal INPUT**, from the gateway root unless stated otherwise:
 
 ```powershell
-python -m platformio run -e esp32c3
-python -m platformio run -e esp32c3 -t buildfs
+python -m platformio run --project-dir firmware -e esp32c3
+python -m platformio run --project-dir firmware -e esp32c3 -t buildfs
 python tools/test_native.py
 ```
 
@@ -20,13 +29,15 @@ npm run build
 npm test
 ```
 
-The generated `firmware/web/assets.h` is included so a firmware build does not need npm. After editing UI source, rebuild it **before** compiling firmware. For a first empty device only, upload the filesystem image with `python -m platformio run -e esp32c3 -t uploadfs --upload-port COMx`. **This replaces all archive files. Never use uploadfs as a routine firmware update.** Upload application with `python -m platformio run -e esp32c3 -t upload --upload-port COMx` and inspect the current partition layout first. Any newly generated release manifest must reflect the exact current build; verify with `python tools/package.py --verify` after packaging. Do not rely on deleted legacy release artifacts.
+The generated `firmware/include/web/assets.h` is included so a firmware build does not need npm. After editing UI source, rebuild it **before** compiling firmware. For a first empty device only, upload the filesystem image with `python -m platformio run --project-dir firmware -e esp32c3 -t uploadfs --upload-port COMx`. **This replaces all archive files. Never use uploadfs as a routine firmware update.** Upload application with `python -m platformio run --project-dir firmware -e esp32c3 -t upload --upload-port COMx` and inspect the current partition layout first. Any newly generated release manifest must reflect the exact current build; verify with `python tools/package.py --verify` after packaging. Do not rely on deleted legacy release artifacts.
 
 Do not flash automatically to an unidentified COM device. Firmware/source packages contain no installation keys or credentials. Reusing an installation's still-running node sessions requires preserving `gw_nvs` sequence history. An all-flash erase is a recovery event, not a routine update.
 
 Read the [PlatformIO / VS Code build guide](PLATFORMIO_VSCODE.md), [wiring reference](HARDWARE.md), and [medium-access design](COLLISION_CONTROL.md) before connecting the module.
 
 ![Gateway SX1262 wiring](assets/wiring-c3.svg)
+
+</details>
 
 ## One node
 
@@ -90,8 +101,8 @@ Read diagnostics in order: initialization/SPI → RF observations → authentica
 
 ## PlatformIO validation / safe release package
 
-Open the repository **root** in VS Code with PlatformIO IDE and select the environment `esp32c3` (board ID `esp32-c3-devkitm-1`). The node project uses `esp32-s3-devkitc-1`; they share the same pinned platform URL, RadioLib and ArduinoJson, not a binary image. Check `docs/PLATFORMIO_VSCODE.md` for VS Code setup and `docs/COLLISION_CONTROL.md` for gateway CAD and half-duplex limitations. `python tools/check_compatibility.py` and `python tools/check_wiring.py` are preflight checks. Once firmware is built, `python -m platformio run -e esp32c3 -t buildfs` makes a *local* blank filesystem image, and `python tools/check_flash_layout.py` checks partition offsets; neither action uploads data to a connected device. `python tools/package.py` creates a source + image ZIP **without ELF**, and `--verify` checks its hashes. Do not use the included `littlefs.bin` during a routine update because it overwrites checkpoint archives.
+Open the repository **root** in VS Code with PlatformIO IDE and select the environment `esp32c3` (board ID `esp32-c3-devkitm-1`). The node project uses `esp32-s3-devkitc-1`; they share the same pinned platform URL, RadioLib and ArduinoJson, not a binary image. Check `docs/PLATFORMIO_VSCODE.md` for VS Code setup and `docs/COLLISION_CONTROL.md` for gateway CAD and half-duplex limitations. `python tools/check_compatibility.py` and `python tools/check_wiring.py` are preflight checks. Once firmware is built, `python -m platformio run --project-dir firmware -e esp32c3 -t buildfs` makes a *local* blank filesystem image, and `python tools/check_flash_layout.py` checks partition offsets; neither action uploads data to a connected device. `python tools/package.py` creates a source + image ZIP **without ELF**, and `--verify` checks its hashes. Do not use the included `littlefs.bin` during a routine update because it overwrites checkpoint archives.
 
 ## Regional RF compliance gate (Indonesia)
 
-Both source repositories contain a legacy default carrier of 915 MHz; this is not the recommended authorized LPWAN carrier at an Indonesian factory. **Leave RF disabled** until both devices have been set to a common 920–923 MHz frequency (for example 921 MHz) and checked against the current local class-license rules. The 2025 Komdigi LPWAN table also specifies a maximum 250 kHz bandwidth and a 1% maximum uplink/downlink duty cycle. See [RF compliance checklist](RF_COMPLIANCE_ID.md). Do not use a successful LoRa SPI initialization as evidence that legal transmission is permitted.
+Both repositories retain their **915 MHz source default**, allowing matching software configuration. Actual on-air operation must still follow the authorization and emission limits applicable at the installation site. The Indonesian 2025 LPWAN class-license reference specifies 920–923 MHz, a maximum 250 kHz channel bandwidth and a 1% uplink/downlink duty cycle for that class. See [RF compliance checklist](RF_COMPLIANCE_ID.md). A successful LoRa SPI initialization is not evidence of RF permission, antenna compliance or adequate signal coverage.

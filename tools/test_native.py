@@ -5,8 +5,8 @@ root=Path(__file__).resolve().parent.parent
 os.chdir(root)
 build=root/'.build';build.mkdir(exist_ok=True)
 binary=build/('gateway-tests.exe' if os.name=='nt' else 'gateway-tests')
-sources=sorted((root/'firmware/core').glob('*.cpp'))+sorted((root/'firmware/storage').glob('*.cpp'))
-cmd=['g++','-std=c++17','-O2','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-Ifirmware','tests/native.cpp',*[str(p) for p in sources],'-o',str(binary)]
+sources=sorted((root/'firmware/src/core').glob('*.cpp'))+sorted((root/'firmware/src/storage').glob('*.cpp'))
+cmd=['g++','-std=c++17','-O2','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-Ifirmware/include','-Ifirmware/include/app','-Ifirmware/include/core','-Ifirmware/include/storage','-Ifirmware/include/web','tests/native.cpp',*[str(p) for p in sources],'-o',str(binary)]
 print('Compiling production core with native g++',flush=True)
 subprocess.run(cmd,check=True)
 subprocess.run([str(binary)],check=True)

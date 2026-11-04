@@ -1,3 +1,7 @@
+<p align="left"><img src="assets/midea-brand.svg" alt="Midea" width="185" /></p>
+
+![PlatformIO](assets/badges/platformio.svg) ![Protocol](assets/badges/protocol.svg) ![Board](assets/badges/board.svg)
+
 # Reproducible dependency baseline
 
 | Component | Pin | Role / license |
@@ -13,12 +17,24 @@
 | esbuild | 0.25.12 | Bundle/minify, build host only; MIT |
 | jsdom | 26.1.0 | Production-bundle regression, host only; MIT |
 
-`dashboard/package-lock.json` captures all transitive UI packages/integrity hashes. `platformio.ini` pins platform URL and radio/JSON versions. Do not replace RadioLib without rerunning vector, scheduler airtime and RF compatibility checks. No RTOS library is added: use ESP32's supplied FreeRTOS with bounded queues and unpinned tasks.
+`dashboard/package-lock.json` captures all transitive UI packages/integrity hashes. `firmware/platformio.ini` pins platform URL and radio/JSON versions. Do not replace RadioLib without rerunning vector, scheduler airtime and RF compatibility checks. No RTOS library is added: use ESP32's supplied FreeRTOS with bounded queues and unpinned tasks.
 
-No node_modules, `.pio`, toolchain archives, reference cache, production credentials or development Python tools are included in the release source package. `firmware/web/assets.h` is a generated, local compressed asset; it embeds React's retained notices and no test fixture. A production firmware build does not serve `dashboard/preview.mjs` or test data.
+No node_modules, `.pio`, toolchain archives, reference cache, production credentials or development Python tools are included in the release source package. `firmware/include/web/assets.h` is a generated, local compressed asset; it embeds React's retained notices and no test fixture. A production firmware build does not serve `dashboard/preview.mjs` or test data.
 
 The CI workflow provides current build and native-test evidence. Compiled release files are generated artifacts and are intentionally excluded from Git; do not treat an old release manifest as evidence for a newer source commit. Runtime heap/stack watermarks, flash power-fail behavior and RF performance need the hardware acceptance procedure.
 
 ## Release hygiene (gateway ESP32-C3)
 
 The gateway release generator now packages tracked source and verified flash images, including VS Code project settings and the PlatformIO root configuration. It excludes `.elf` debugger output, which can contain build-machine paths, and reports actual SHA256 hashes instead of old hardcoded software test counts. The pinned upstream node package contract is documented in `docs/upstream-package-lock.json`. CI rechecks this record, source and wiring diagrams, native tests, React bundle parity, ESP32-C3 firmware build, filesystem size and flash partitions. Packaging does not flash or modify any hardware.
+
+<details><summary><b>Version alignment overview</b></summary>
+
+| Gateway target | ESP32-C3-DevKitM-1, standard `firmware/src` + `include` |
+| --- | --- |
+| Meter node target | ESP32-S3-DevKitC-1, separate firmware binary |
+| Shared platform | pioarduino 55.03.311 |
+| Shared radio | RadioLib 7.8.1 · SX1262 · LoRa v1 |
+| Shared JSON | ArduinoJson 7.3.1 |
+| RF defaults | 915 MHz, BW125, SF7, 14 dBm configured TX |
+
+</details>

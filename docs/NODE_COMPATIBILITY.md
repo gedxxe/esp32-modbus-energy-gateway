@@ -1,8 +1,13 @@
+<p align="left"><img src="assets/midea-brand.svg" alt="Midea" width="185" /></p>
+
+![C3](assets/badges/board.svg) ![LoRa](assets/badges/protocol.svg) ![RadioLib](assets/badges/radiolib.svg)
+
+
 # Node compatibility record
 
 ## Audited baseline
 
-Read-only upstream: [gedxxe/esp32-modbus-energy](https://github.com/gedxxe/esp32-modbus-energy), main commit **737cfff590c0cbea33895df17c3e3ffc06449e15**, node firmware **3.5.0**, and **Energy Station radio protocol v1**. The gateway implements the existing wire contract; firmware and radio protocol versions are separate. The node repository is not changed by this work.
+Inspected original main baseline (read-only): [gedxxe/esp32-modbus-energy](https://github.com/gedxxe/esp32-modbus-energy), main commit **737cfff590c0cbea33895df17c3e3ffc06449e15**, node firmware **3.5.0**, and **Energy Station radio protocol v1**. The gateway implements the existing wire contract; firmware and radio protocol versions are separate. A separately reviewed [node PR #5](https://github.com/gedxxe/esp32-modbus-energy/pull/5) proposes CAD before uplinks; it preserves LoRa protocol v1. The original main SHA remains the reproducible protocol baseline.
 
 The implementation was cross-checked against upstream `docs/LORA_PROTOCOL.md`, `firmware/include/lora_protocol.h`, `firmware/src/lora_service.cpp`, `firmware/include/checkpoint_log.h` and the public interoperability vector. `docs/reference-files.json` still retains hashes from the earlier 3.5.0 baseline for reproducibility and is not presented as an updated hash manifest. The wire layout and field meanings used by the gateway remain the protocol v1 contract.
 
@@ -41,4 +46,13 @@ See `PROTOCOL_LIMITATIONS.md` for source reproductions and possible coordinated 
 
 ## PlatformIO and package compatibility matrix
 
-The audited node at SHA `737cfff590c0cbea33895df17c3e3ffc06449e15` uses the **ESP32-S3 DevKitC** environment while this gateway uses **ESP32-C3 DevKitM-1**. Both projects pin the same pioarduino `55.03.311`, RadioLib `7.8.1` and ArduinoJson `7.3.1`; the gateway does not need the node's OLED/RTC libraries. The gateway root `platformio.ini` sets `src_dir = firmware` and `include_dir = firmware` for VS Code. The pinned reference and checks are recorded in [upstream-package-lock.json](upstream-package-lock.json) and can be reproduced with `python tools/check_compatibility.py`. The node repository was not modified, and firmware version `3.5.0` must not be confused with LoRa wire version `1`.
+The audited node at SHA `737cfff590c0cbea33895df17c3e3ffc06449e15` uses the **ESP32-S3 DevKitC** environment while this gateway uses **ESP32-C3 DevKitM-1**. Both projects pin the same pioarduino `55.03.311`, RadioLib `7.8.1` and ArduinoJson `7.3.1`; the gateway does not need the node's OLED/RTC libraries. The gateway `firmware/platformio.ini` uses standard `src/` and `include/` directories, exactly as the node project does. The pinned reference and checks are recorded in [upstream-package-lock.json](upstream-package-lock.json) and can be reproduced with `python tools/check_compatibility.py`. The node's separate PR changes its radio scheduler without changing LoRa wire bytes; firmware version `3.5.0` must not be confused with LoRa wire version `1`.
+
+<details><summary><b>Independent node/gateway project files</b></summary>
+
+- Gateway: `firmware/platformio.ini`, board `esp32-c3-devkitm-1`, source `firmware/src/`.
+- Node: `firmware/platformio.ini`, board `esp32-s3-devkitc-1`, source `firmware/src/`.
+- Shared: pioarduino 55.03.311, RadioLib 7.8.1, ArduinoJson 7.3.1, wire protocol v1, initial PHY 915 MHz and 14 dBm TX.
+- Different: power meter and OLED on the node versus Wi-Fi receiver dashboard and archive on the gateway.
+
+</details>
