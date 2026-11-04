@@ -37,8 +37,8 @@ const words = {
     fw: "Node firmware",
     stored: "Key configured",
     notStored: "Key not configured",
-    sampleStale: "Last received value; not a current measurement",
-    now: "Current energy",
+    sampleStale: "Last valid kWh reading. Check the timestamp before using it as a current value.",
+    now: "Last valid energy reading",
     transaction: "Request",
     capture: "Checkpoint request",
     day: "WIB day number",
@@ -80,8 +80,8 @@ const words = {
     fw: "Firmware node",
     stored: "Key terkonfigurasi",
     notStored: "Key belum diisi",
-    sampleStale: "Nilai terakhir diterima; bukan pengukuran saat ini",
-    now: "Energi saat ini",
+    sampleStale: "Pembacaan kWh valid terakhir. Periksa waktunya sebelum dianggap sebagai nilai saat ini.",
+    now: "Pembacaan energi valid terakhir",
     transaction: "Permintaan",
     capture: "Permintaan checkpoint",
     day: "Nomor hari WIB",
@@ -168,6 +168,8 @@ function ReceivedData({ node: n, w }) {
 }
 function NodeCard({ node: n, w, edit, command, busy, requestCheckpoint }) {
   const isFresh = Boolean(n.enabled && fresh(n));
+  const hasReading = Boolean(n.hasLive && (n.live.flags & 1) && Number.isFinite(n.live.kwh));
+  const requestPending = ["reserving", "queued", "waiting", "validated"].includes(n.request);
   const status = !n.enabled
     ? w.disabled
     : isFresh
@@ -202,12 +204,13 @@ function NodeCard({ node: n, w, edit, command, busy, requestCheckpoint }) {
       <div className="node-energy">
         <span>{w.now}</span>
         <b className="energy">
-          {isFresh ? energy(n.live.kwh) : "—"} <small>kWh</small>
+          {hasReading ? energy(n.live.kwh) : "—"} <small>kWh</small>
         </b>
         <small>
           {w.receive}: {n.hasLive ? age(n.receiveAge) : "—"} · {w.sample}:{" "}
           {n.hasLive ? age(n.live.sampleAge) : "—"}
         </small>
+        {hasReading && !isFresh && <p className="reading-note">{w.sampleStale}</p>}
       </div>
       <section className="link-health" aria-label={w.link}>
         <div className="link-title">
@@ -241,7 +244,7 @@ function NodeCard({ node: n, w, edit, command, busy, requestCheckpoint }) {
       <ReceivedData node={n} w={w} />
       <div className="node-card-actions">
         <button
-          disabled={busy || !n.enabled || !n.session}
+          disabled={busy || requestPending || !n.enabled || !n.session}
           onClick={() => command({ action: "live", index: n.index })}
         >
           {w.live}

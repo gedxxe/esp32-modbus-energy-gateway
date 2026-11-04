@@ -44,6 +44,7 @@ struct View {
   int16_t radioCode = 0;
   char phase[24] = "disabled";
   Counters counters{};
+  uint32_t automaticPolls = 0, automaticPollErrors = 0;
   uint32_t physicalCRC = 0, driverErrors = 0, queueDrops = 0, expired = 0, coalesced = 0;
   size_t txDepth = 0, archiveCount = 0, sessionSlots = 0;
   uint32_t flashUsed = 0, flashTotal = 0;

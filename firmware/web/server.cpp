@@ -77,6 +77,10 @@ esp_err_t status(httpd_req_t *req) {
   d["boot"] = hex;
   d["uptime"] = view.uptime;
   d["dutyWait"] = view.dutyWait;
+  d["autoRefreshIntervalMs"] = RefreshIntervalMs;
+  d["autoRefreshGraceMs"] = RefreshGraceMs;
+  d["automaticPolls"] = view.automaticPolls;
+  d["automaticPollErrors"] = view.automaticPollErrors;
   d["storage"] = view.storage;
   d["sequences"] = view.sequences;
   d["fsMounted"] = view.fsMounted;

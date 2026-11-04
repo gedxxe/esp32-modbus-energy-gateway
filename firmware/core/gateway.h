@@ -4,6 +4,7 @@
 #include "protocol.h"
 #include "checkpoint.h"
 #include "scheduler.h"
+#include "refresh_policy.h"
 namespace gw {
 constexpr size_t ReplayWindow = 16;
 struct Replay {
@@ -78,6 +79,8 @@ public:
   NodeState nodes[16]{};
   Counters counters{};
   Scheduler scheduler{};
+  RefreshPolicy refreshPolicy{};
+  uint32_t automaticPolls = 0, automaticPollErrors = 0;
   Assembly assembly{};
   explicit Gateway(GatewayIO &port) : io(port) {}
   void configure(const Config &c);

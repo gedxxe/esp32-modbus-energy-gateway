@@ -127,6 +127,8 @@ void publish() {
   v.revision = gateway.config.revision;
   v.phy = gateway.config.phy;
   v.counters = gateway.counters;
+  v.automaticPolls = gateway.automaticPolls;
+  v.automaticPollErrors = gateway.automaticPollErrors;
   v.radioStackMin = uxTaskGetStackHighWaterMark(nullptr);
   v.physicalCRC = crcErrors;
   v.driverErrors = driverErrors;

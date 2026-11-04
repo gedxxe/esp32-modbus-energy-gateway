@@ -473,6 +473,50 @@ void sessions() {
   timeout.tick(timeout.nodes[0].pending.deadline + 1);
   CHECK(timeout.nodes[0].pending.state == RequestState::Unavailable && timeoutIO.saved == 0);
 }
+void automaticRefresh() {
+  RefreshPolicy policy;
+  CHECK(!policy.due(0, 1000 + RefreshIntervalMs, 1000, true));
+  CHECK(!policy.due(0, 1000 + RefreshIntervalMs + RefreshGraceMs - 1, 1000, true));
+  CHECK(policy.due(0, 1000 + RefreshIntervalMs + RefreshGraceMs, 1000, true));
+  CHECK(policy.due(1, 1000 + RefreshRetryMs, 1000, false));
+  policy.attempted(0, 1000 + RefreshIntervalMs + RefreshGraceMs);
+  CHECK(!policy.available(1000 + RefreshIntervalMs + RefreshGraceMs + RefreshSpacingMs - 1));
+  CHECK(policy.available(1000 + RefreshIntervalMs + RefreshGraceMs + RefreshSpacingMs));
+  CHECK(policy.at(0) == 1);
+  policy.reset();
+  CHECK(policy.at(0) == 0);
+
+  IO io;
+  Gateway g(io);
+  g.configure(config());
+  for (unsigned i = 0; i < 3; ++i) {
+    g.nodes[i].current.nonce = uint64_t(1200 + i);
+    g.nodes[i].hasLive = true;
+    g.nodes[i].live.flags = 1;
+    g.nodes[i].received = 1000;
+  }
+  uint64_t due = 1000 + RefreshIntervalMs + RefreshGraceMs;
+  g.tick(due - 1);
+  CHECK(io.reservations.empty());
+  g.tick(due);
+  CHECK(io.reservations.size() == 1);
+  CHECK(io.reservations[0].index == 0);
+  CHECK(g.automaticPolls == 1 && g.automaticPollErrors == 0);
+  CHECK(g.nodes[0].pending.state == RequestState::Reserving);
+  // No second request while a first one is awaiting flash reservation or RF.
+  g.tick(due + RefreshSpacingMs);
+  CHECK(io.reservations.size() == 1);
+  g.nodes[0].pending.state = RequestState::Idle;
+  // Fresh unsolicited telemetry postpones an automatic request to that node.
+  g.nodes[1].received = due;
+  g.tick(due + RefreshSpacingMs);
+  CHECK(io.reservations.size() == 2);
+  CHECK(io.reservations[1].index == 2);
+  CHECK(g.automaticPolls == 2);
+  // Configuration changes reset only the volatile refresh policy.
+  g.configure(config());
+  CHECK(g.automaticPolls == 0 && g.automaticPollErrors == 0);
+}
 void scheduler() {
   Scheduler s;
   auto c = config();
@@ -569,5 +613,6 @@ int main(int argc, char **argv) {
   reassembly();
   sessions();
   scheduler();
+  automaticRefresh();
   std::cout << "PASS " << checks << " production-core regression assertions\n";
 }
