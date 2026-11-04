@@ -1,0 +1,10 @@
+.pio/
+.build/
+node_modules/
+dashboard/dist/
+__pycache__/
+*.pyc
+.reference/
+.cache/
+*.log
+release/*.zip

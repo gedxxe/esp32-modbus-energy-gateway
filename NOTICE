@@ -1,0 +1,19 @@
+Energy Station Gateway, 2026. GPL-3.0-only; see LICENSE.
+
+Protocol layouts, CRC16, checkpoint schema 3 validation and historical energy
+validation are adapted from gedxxe/esp32-modbus-energy, commit
+26c3a9429c8c4d410ef11a1b81e1e42f295034b1 (firmware 3.4.3), GPL-3.0-only.
+Original source: https://github.com/gedxxe/esp32-modbus-energy
+Relevant files and hashes: docs/reference-files.json and NODE_COMPATIBILITY.md.
+Changes: independent gateway implementation; extracted decoder subset instead of
+node acquisition/tracker/register maps; explicit LE codecs; portable HMAC;
+gateway session, replay, scheduling, local persistence and commissioning UI.
+
+docs/lora-v1-vector.json and tools/check_lora.py are copied from that baseline.
+The public key appears only in the test fixture/tests, never deployment defaults.
+
+Bundled dashboard includes React 18.3.1 / React DOM 18.3.1 (Meta Platforms,
+Inc. and affiliates), MIT license. See licenses/REACT.txt. Generated bundle
+retains legal comments. RadioLib 7.8.1 is MIT (Jan Gromes); ArduinoJson 7.3.1
+is MIT (Benoit Blanchon). Arduino-ESP32 uses LGPL-2.1-or-later; ESP-IDF and
+toolchain components retain upstream licenses. See docs/DEPENDENCIES.md.

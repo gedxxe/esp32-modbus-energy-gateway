@@ -1,0 +1,20 @@
+# Reproducible dependency baseline
+
+| Component | Pin | Role / license |
+|---|---|---|
+| PlatformIO Core | 6.1.19 (build host) | Build orchestration |
+| pioarduino espressif32 | 55.03.311 release URL | C3 board/SDK integration |
+| Arduino-ESP32 | 3.3.11 (platform pin) | Framework, LGPL-2.1-or-later |
+| ESP-IDF | 5.5.5 (framework libs baseline) | ESP runtime, Apache-2.0 |
+| RISC-V GCC | esp-14.2.0_20260121 | C3 compiler, GPL with runtime exception |
+| RadioLib | 7.8.1 | Matches node dependency; MIT |
+| ArduinoJson | 7.3.1 | Bounded API JSON; MIT |
+| React / React DOM | 18.3.1 | Local dashboard; MIT |
+| esbuild | 0.25.12 | Bundle/minify, build host only; MIT |
+| jsdom | 26.1.0 | Production-bundle regression, host only; MIT |
+
+`dashboard/package-lock.json` captures all transitive UI packages/integrity hashes. `platformio.ini` pins platform URL and radio/JSON versions. Do not replace RadioLib without rerunning vector, scheduler airtime and RF compatibility checks. No RTOS library is added: use ESP32's supplied FreeRTOS with bounded queues and unpinned tasks.
+
+No node_modules, `.pio`, toolchain archives, reference cache, production credentials or development Python tools are included in the release source package. `firmware/web/assets.h` is a generated, local compressed asset; it embeds React's retained notices and no test fixture. A production firmware build does not serve `dashboard/preview.mjs` or test data.
+
+Build verification results, exact chip/framework output, static RAM/flash sizes and SHA256 manifest are in `docs/VERIFICATION.md` and `release/manifest.json`. Runtime heap/stack watermarks, flash power-fail behavior and RF performance need the hardware acceptance procedure.

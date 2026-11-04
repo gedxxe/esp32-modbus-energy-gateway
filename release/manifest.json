@@ -1,0 +1,401 @@
+{
+  "release": "0.1.1",
+  "date": "2026-11-04",
+  "target": "esp32-c3-devkitm-1",
+  "flash_bytes": 4194304,
+  "protocol": "Energy Station v1",
+  "node_commit": "26c3a9429c8c4d410ef11a1b81e1e42f295034b1",
+  "framework": "Arduino-ESP32 3.3.11 / ESP-IDF 5.5.5",
+  "platform": "pioarduino 55.03.311",
+  "radiolib": "7.8.1",
+  "hardware_tested": false,
+  "artifacts": [
+    {
+      "path": "release/bootloader.bin",
+      "bytes": 19536,
+      "sha256": "d4a87d86e17457c5d9e6d9b6c83f1af5ab0122a58545aaab392af1135a01f00a",
+      "flash_offset": "0x0"
+    },
+    {
+      "path": "release/partitions.bin",
+      "bytes": 3072,
+      "sha256": "2f76520c8b894552803325221ec62eb934d1286c0ba21128ab2f3e6e910d51fc",
+      "flash_offset": "0x8000"
+    },
+    {
+      "path": "release/firmware.bin",
+      "bytes": 1267696,
+      "sha256": "19e5546a4a559699e097f345a945d27bf246c245c55b2e41458dbafd3f412295",
+      "flash_offset": "0x20000"
+    },
+    {
+      "path": "release/littlefs.bin",
+      "bytes": 1966080,
+      "sha256": "e53e6dbccd9c47e5650278c3dbd9789b582fbe2a3bda5666e462be9ebfa200c0",
+      "flash_offset": "0x220000"
+    },
+    {
+      "path": "release/firmware.elf",
+      "bytes": 17770888,
+      "sha256": "1a9311a4483f56c1420a39e44da83032f3f74b15ab5b3435b6b6605262a04b2a",
+      "flash_offset": null
+    }
+  ],
+  "source": [
+    {
+      "path": ".clang-format",
+      "sha256": "43db7ea33e88e6a2467ea838b037a8bca32e71662b0a52615e49c3ca97ca687f"
+    },
+    {
+      "path": ".gitattributes",
+      "sha256": "129155bb19a39cf0d505e7c7ec4c6492d804c8f1572698ece81c64cde8ab7dc3"
+    },
+    {
+      "path": ".gitignore",
+      "sha256": "3b817737d8ddeec7703ad852775e8b231be139e773ab4615627da5af3463fa96"
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "c6d3831ab2d7f18c3eff74fda26b18ae555e6eb3a8b05cb8fc10707b623f2d68"
+    },
+    {
+      "path": "dashboard/build.mjs",
+      "sha256": "8617c10de2ebed8533af0ba0d5d7e5c90ee19ca1062a2e139a44e6ceffe0dad9"
+    },
+    {
+      "path": "dashboard/package-lock.json",
+      "sha256": "000e673815ebc52ed9e6f719904cedb77de652dd57f35108c2d66893206a3a3e"
+    },
+    {
+      "path": "dashboard/package.json",
+      "sha256": "77209dc0da8887277d76495e8031793b9c112f15a785dabd372eb1db1b74aee9"
+    },
+    {
+      "path": "dashboard/preview.mjs",
+      "sha256": "e685ab25ccee5fb9ea5cccb73467979c50d6770a38e51f60b4da98fed43fcd52"
+    },
+    {
+      "path": "dashboard/src/api.js",
+      "sha256": "69f66e7dd4b4576224208e5eb3d1df6bb05a53f6b958524285386c5840068686"
+    },
+    {
+      "path": "dashboard/src/inventory.js",
+      "sha256": "3b935f66ab14941c2f71c79956a87eca87969df3b86aaed3dd85886e01ee9e8d"
+    },
+    {
+      "path": "dashboard/src/main.jsx",
+      "sha256": "996fe26ffba81803f08472e518d8fcbe1abcec2e5773f8ab5dc7ddb10d7d9e99"
+    },
+    {
+      "path": "dashboard/src/NodeCards.jsx",
+      "sha256": "2adf4d78b6b9c787fe645c6524a66fc47fb563e86436e1f59a3f175d1863ed44"
+    },
+    {
+      "path": "dashboard/src/Nodes.jsx",
+      "sha256": "ab353f2f3afbd561e4b543e7953346d4d969b19545f35a6d89490ac70b4675b4"
+    },
+    {
+      "path": "dashboard/src/RadioForm.jsx",
+      "sha256": "9778b31d455c6d1efd3aef39f043b4aa90d6a6bcae454a125a6c3bfe31485d68"
+    },
+    {
+      "path": "dashboard/src/style.css",
+      "sha256": "7230a2dd80c5933aba6d7fb36fff0193420975a704548b3360bbd7dc9eecf8b5"
+    },
+    {
+      "path": "dashboard/src/ui.jsx",
+      "sha256": "27cc9e744c483fff21bc30ad92e4d0ac953b5de63f7df18a69f1325d157fe074"
+    },
+    {
+      "path": "dashboard/test/bundle.test.mjs",
+      "sha256": "792d5d6cad2223aa4459b463a5f39c43b35de673da509758ab4095cb31f1fd25"
+    },
+    {
+      "path": "dashboard/test/cards.test.mjs",
+      "sha256": "e01783c1e7fadcdffd0f91bef259ab50ebbf41d6f118f857f62b66cbfebd03fe"
+    },
+    {
+      "path": "dashboard/test/fixture.mjs",
+      "sha256": "9c4d88a4bb9dd311110459c80718c41c2982a69d77a5c442c7f28a56c63f45b7"
+    },
+    {
+      "path": "dashboard/test/inventory.test.mjs",
+      "sha256": "bdee383e2c1f71305cc9afe8f737532052965613de234ae9e91b357cd3bc5530"
+    },
+    {
+      "path": "data/README.txt",
+      "sha256": "f75f5750b089325d8bffc14c63a9fc079121c613141973f4b08079eaec7b6379"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "sha256": "32c21b9115904e251bcddb94739d9a79c6674cd3e1be868b22f72c8b57e6341d"
+    },
+    {
+      "path": "docs/assets/dashboard-mobile-qa.png",
+      "sha256": "e695de8ccb6e87bb1a2fbdf39b847505677d91b14c5507422ddfd24d682a46d7"
+    },
+    {
+      "path": "docs/assets/node-cards-mobile-qa.png",
+      "sha256": "98beb1689052c7971b3475d05afc0d048e046cb541faaaecb6f7bcc7c46f2257"
+    },
+    {
+      "path": "docs/assets/wiring-c3.svg",
+      "sha256": "486df3a70e75d12a87915e2edd32bde92bd4b6794f93ea438a53b3952f124cff"
+    },
+    {
+      "path": "docs/COMMISSIONING.md",
+      "sha256": "3898a0af6cb621e69e4694afe0c3884b2b37bf90f7311d24f5f38fe3c0cd509c"
+    },
+    {
+      "path": "docs/DECISIONS.md",
+      "sha256": "2a24147306d9e2db7e34f5a89ac4ad042eb22c28cb27a4a0122a391658199f4a"
+    },
+    {
+      "path": "docs/DEPENDENCIES.md",
+      "sha256": "c86af3fb6f77e6489ded5ba524e3ee4193e8f279bac222c50110f3c3c2456c93"
+    },
+    {
+      "path": "docs/HARDWARE.md",
+      "sha256": "8a6620313828aa42f10229dcce5657848976c32bc44311bd3fe981423661037a"
+    },
+    {
+      "path": "docs/lora-v1-vector.json",
+      "sha256": "56d1a1ed50856efc6905bad085d187c97bde65c4a9df0ab6a4464b8d9b4b9640"
+    },
+    {
+      "path": "docs/NODE_COMPATIBILITY.md",
+      "sha256": "2cc4d95f881f6a6fc12fb8ce2a397e99871760a9545ace151f8357bc4f5a207d"
+    },
+    {
+      "path": "docs/PROTOCOL_LIMITATIONS.md",
+      "sha256": "37cbb160c02d5796defa7d546c21dcae2e10275b49e8c6863a33a947be63cd68"
+    },
+    {
+      "path": "docs/reference-files.json",
+      "sha256": "0d1c79ba36906635f6d72c3e0ccc8dc6989c309f71b64a9c11976264ec3f34ca"
+    },
+    {
+      "path": "docs/VERIFICATION.md",
+      "sha256": "0efcfb47c8ca2e68f959e3dfd54e9693202fe068589b6656bba01fafadc9c646"
+    },
+    {
+      "path": "docs/wiring-c3.csv",
+      "sha256": "5be5ba355eeb831702415dde796eca5abe2334d47b41b3545b9aff1c19285548"
+    },
+    {
+      "path": "firmware/app/internal.h",
+      "sha256": "9f16b14995c437632c0b8cb1cd7f8bb9a86e13f0fe29026b0fecde2e121669be"
+    },
+    {
+      "path": "firmware/app/runtime.cpp",
+      "sha256": "f778833ab7a2e64fa6c595e1c2df20824d39d405f78037c817f891ce11eaf4d6"
+    },
+    {
+      "path": "firmware/app/runtime.h",
+      "sha256": "268a163b1137222a256c6623179dfd577c0f5bec05b909845ed637a0083b0535"
+    },
+    {
+      "path": "firmware/app/storage_service.cpp",
+      "sha256": "65ddd672934eb07338c6cb1da5e35c2b67defd0528d3ab65c5d6b16a8c721991"
+    },
+    {
+      "path": "firmware/board/reference.h",
+      "sha256": "b2ba66dc74c5fb33210ac127124c4b80961e625ed67b0ca7fc47acc85c4be8a3"
+    },
+    {
+      "path": "firmware/core/bytes.h",
+      "sha256": "196f36e69a0ab0421c571c8037693d6c0c931b315efb37b7828c33676b111cb7"
+    },
+    {
+      "path": "firmware/core/checkpoint.cpp",
+      "sha256": "14d50d43b2ac554ce0be62afb8cb34e020997069d7d09389e01e067f300f019f"
+    },
+    {
+      "path": "firmware/core/checkpoint.h",
+      "sha256": "a5d1f015e215f202c9438a4cc33ada24047e1884910e2c63c0297640771afaef"
+    },
+    {
+      "path": "firmware/core/config.cpp",
+      "sha256": "e1d254dea70df5baedebcb0b31837183f2ef74157715f3e0fa943bab6c10f036"
+    },
+    {
+      "path": "firmware/core/config.h",
+      "sha256": "df11a3682459d5f8327c89333484dde981c1f7fa6cabe6df7c68b513e102088a"
+    },
+    {
+      "path": "firmware/core/crypto.cpp",
+      "sha256": "3fde55917667b37d3ad3614a1260dbe2aaed6a62f7cbc44b46481b819593b29c"
+    },
+    {
+      "path": "firmware/core/crypto.h",
+      "sha256": "ff9fd72ab2b0f0bbb11cc0c07b39ced8212460128e86b033727e4d70f7a91076"
+    },
+    {
+      "path": "firmware/core/gateway.cpp",
+      "sha256": "364a7c8e76c6414d1303339f223504f39b99d0db18139e2b5b4dce90cf26a1bb"
+    },
+    {
+      "path": "firmware/core/gateway.h",
+      "sha256": "b14bac44c7f1066323298e3608d4d41194f82ac1b45d6e5d2d1578740f16ca83"
+    },
+    {
+      "path": "firmware/core/protocol.cpp",
+      "sha256": "19be0b690dadb520bc23d3e5940eaaadb070026a691991c6328fac750fbd907a"
+    },
+    {
+      "path": "firmware/core/protocol.h",
+      "sha256": "dae608ec51738c8b8cb0faa288525fa94a0fa3a485f582f8be6ab2cbcea7a131"
+    },
+    {
+      "path": "firmware/core/radio_lifecycle.h",
+      "sha256": "814f148b0667e1fb93d90d27730285dc09a21c24894f0a0e5bb9817b1c1b9c13"
+    },
+    {
+      "path": "firmware/core/scheduler.cpp",
+      "sha256": "f6e7ad90cac3936787d5c2dc729d83a96aaa21bd63eac52826bd996861b54155"
+    },
+    {
+      "path": "firmware/core/scheduler.h",
+      "sha256": "9c72d8133617f178843cbfc9a9e76838e3e186066383e24313ae8b5c78bc4199"
+    },
+    {
+      "path": "firmware/main.cpp",
+      "sha256": "99c304b788133675aa5e3b4438e225aaeaf74869e3bf09078a2ff2e63ced260e"
+    },
+    {
+      "path": "firmware/radio/service.cpp",
+      "sha256": "1176eee6375dfcabf42fd4779bf4745829b77efe1849e2dde12b772b21c5e911"
+    },
+    {
+      "path": "firmware/storage/archive.cpp",
+      "sha256": "362d5ac853d7d95f2d5bd2361c6445ec8cec881e5ebf8a48a57b00f888335d43"
+    },
+    {
+      "path": "firmware/storage/archive.h",
+      "sha256": "840e5c1f343c8759e47fe516fcb18d379183b006ba08db776615d3a6eec21f47"
+    },
+    {
+      "path": "firmware/storage/banks.cpp",
+      "sha256": "681312f6e055d0279318102bc07ce3001df153018015e72fc83245f157645143"
+    },
+    {
+      "path": "firmware/storage/banks.h",
+      "sha256": "ac34082cf9f42d8ce3492b678bedff9e9b363eba5d7b403d9a2c248fd0223c34"
+    },
+    {
+      "path": "firmware/storage/sequences.cpp",
+      "sha256": "8ccb60115a149c9a692d7dd12bddcac3bc9281b95d7257d9370f196965fc4715"
+    },
+    {
+      "path": "firmware/storage/sequences.h",
+      "sha256": "0b205f1194b93f229e4739e6e24a5fa1d289ec51b3b0660ecc2ec0b722160ae7"
+    },
+    {
+      "path": "firmware/web/assets.h",
+      "sha256": "0172956cbc928019a3cb16394994b8109a5ab25ae26488ba742c79eb7226bd41"
+    },
+    {
+      "path": "firmware/web/server.cpp",
+      "sha256": "5d3e52b50aa6f28c495881861f63d6f72967df8db0610324c262b257323443a1"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "path": "licenses/ArduinoJson.txt",
+      "sha256": "ebba0906d6c8b3daa8a1b59acb2d3a416485dd77fc10f6dd4c9ed2cbe467ee2d"
+    },
+    {
+      "path": "licenses/RadioLib.txt",
+      "sha256": "025378110a5679f82e8a59c19cf91b8ed760dc8752e5504596ef0c0592b8a3e8"
+    },
+    {
+      "path": "licenses/REACT.txt",
+      "sha256": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85"
+    },
+    {
+      "path": "NOTICE",
+      "sha256": "ed43167cbef011bffe8a62dafeccffaa817a1b960a3e20c641d4334bc11c7ad8"
+    },
+    {
+      "path": "partitions.csv",
+      "sha256": "ccd0db34c413c9108d25efcc66ce6872ddeb8d66622ee5fa1f15c47c6ce50912"
+    },
+    {
+      "path": "platformio.ini",
+      "sha256": "f1484e2362b7f52a471fb4e798e48ee8d780948a0550b2fd4cb6d04e7a5b36ae"
+    },
+    {
+      "path": "README.id.md",
+      "sha256": "7e89752291b7c4a828a1205115f751e83b1b69cbc2216d091c275e7aa81d3b67"
+    },
+    {
+      "path": "README.md",
+      "sha256": "778a6d23710772dfef2caec116f43eccfec5057fa4a62f535a36237c2a0a4e45"
+    },
+    {
+      "path": "tests/native.cpp",
+      "sha256": "310b6b6afe1cbba4867aa07d3573f480bc06e3fa3b0a863cf337aa02411d7e59"
+    },
+    {
+      "path": "tools/check_flash_layout.py",
+      "sha256": "c450d18a2e5022a0d61926d608b1807192726d6b6eb1dcc46442dc0b318fd68a"
+    },
+    {
+      "path": "tools/check_lora.py",
+      "sha256": "caa980a6359d080a1cb2ed3b2addadd59779cd2bb105d5d1aa347ed18ca99145"
+    },
+    {
+      "path": "tools/format_source.py",
+      "sha256": "64a23b1fc2318282b59c1b5236f8c4cdaa59041a8d4b612387a43d192279b25b"
+    },
+    {
+      "path": "tools/package.py",
+      "sha256": "8a9570ee683704ae84945354f521cfb940b4cd8ad9b94ebdb62e860128f67931"
+    },
+    {
+      "path": "tools/pio_flash_guard.py",
+      "sha256": "abb039bd082b9e9b577d369971ab8569b4431aaac34076e0aa7edcd7c18a144c"
+    },
+    {
+      "path": "tools/test_native.py",
+      "sha256": "f9ea6daeb11c105d937495858b4f839ef80d6ee855deed02e0c5987cd6abb154"
+    },
+    {
+      "path": "WORK_STATUS.md",
+      "sha256": "8e55a22087241dc62eab4319a60cd28550a496b53113f413681d9cfeec6b64bd"
+    }
+  ],
+  "provisioning": "Preserve gw_nvs and archives on updates. littlefs.bin replaces archives and is first-provisioning only.",
+  "flash_layout": {
+    "chip": "esp32c3",
+    "app_offset": 131072,
+    "app_capacity": 2097152,
+    "extra_images": [
+      {
+        "offset": 0,
+        "name": "bootloader.bin"
+      },
+      {
+        "offset": 32768,
+        "name": "partitions.bin"
+      }
+    ],
+    "boot_app0_removed": true,
+    "gateway_nvs_offset": 57344,
+    "archives_offset": 2228224
+  },
+  "verification": {
+    "production_core_assertions": 580,
+    "independent_hmac_cases": 115,
+    "dashboard_tests": 9,
+    "built_dashboard_tests": 7,
+    "inventory_helper_tests": 2,
+    "static_ram_bytes": 94568,
+    "program_flash_bytes": 1227511,
+    "app_partition_capacity": 2097152,
+    "dashboard_gzip_bytes": 60825,
+    "hardware": "AWAITING_HARDWARE"
+  }
+}

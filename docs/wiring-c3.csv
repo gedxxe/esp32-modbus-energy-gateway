@@ -1,0 +1,17 @@
+net,esp32_c3_gpio_or_supply,ra_01sh_pad,ra_01sh_signal
+SCK,GPIO4,12,SCK
+MOSI,GPIO6,14,MOSI
+MISO,GPIO5,13,MISO
+NSS,GPIO7,15,NSS
+RESET,GPIO10,4,RESET
+BUSY,GPIO3,10,BUSY
+DIO1,GPIO1,6,DIO1
+3V3,regulated_3.3V,3,3.3V
+GND,common_GND,2,GND
+GND,common_GND,9,GND
+GND,common_GND,16,GND
+ANT,matched_50ohm_antenna,1,ANT
+NC,unconnected,5,TXEN
+NC,unconnected,7,DIO2
+NC,unconnected,8,DIO3
+NC,unconnected,11,RXEN

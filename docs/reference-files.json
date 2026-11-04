@@ -1,0 +1,45 @@
+{
+  "commit": "26c3a9429c8c4d410ef11a1b81e1e42f295034b1",
+  "files": [
+    {
+      "path": "docs/LORA_PTMP.md",
+      "sha256": "5b4d924313b003ff05f125ae6aaef50e583cb1fde23e48cfb088282cb70aa392"
+    },
+    {
+      "path": "docs/LORA.md",
+      "sha256": "2924ed78a22dcf3c0129a70161c2dcc16a4bbee1a9a07534740df7e568f6b167"
+    },
+    {
+      "path": "firmware/include/lora_protocol.h",
+      "sha256": "91cabf54710b8ed58a555c598ad7f0c8d907aa2b03bbbe53df3cd2a7f7e2865c"
+    },
+    {
+      "path": "firmware/src/lora_service.cpp",
+      "sha256": "a233a2fd1fb53611883f1a77dcb50ff14c1d9fe510b6bb671a84dd662f7f5c26"
+    },
+    {
+      "path": "firmware/include/checkpoint_log.h",
+      "sha256": "8ca7c58c74bf782e887dad863478bbd6decfde7c508ac2f4b0ce6647d14fc836"
+    },
+    {
+      "path": "firmware/lib/FortMeter/src/MeterProfiles.h",
+      "sha256": "e0fb15be5ccb0fe5f5adb5cd8c756833bd52c5cc678b5843fe6a8428f320a02e"
+    },
+    {
+      "path": "docs/lora-v1-vector.json",
+      "sha256": "56d1a1ed50856efc6905bad085d187c97bde65c4a9df0ab6a4464b8d9b4b9640"
+    },
+    {
+      "path": "tools/check_lora.py",
+      "sha256": "caa980a6359d080a1cb2ed3b2addadd59779cd2bb105d5d1aa347ed18ca99145"
+    },
+    {
+      "path": "firmware/include/clock_guard.h",
+      "sha256": "23f2386d896661d9b59b5547b6345b1bdd9ca911fe8dc3aaeab34be0de7e8e14"
+    },
+    {
+      "path": "firmware/include/energy.h",
+      "sha256": "27a9ae0b6290000e5112e89a5e9e2acf59447e030ddd8ab432882ddbedc23c4a"
+    }
+  ]
+}
