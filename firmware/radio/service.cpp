@@ -288,6 +288,7 @@ void radioTask(void *) {
           ++gateway.cadClear;
           transmitFlight(now);
         } else if (scan == RADIOLIB_LORA_DETECTED) {
+          ++gateway.cadBusy; // Measured RF activity, not a driver/CAD error.
           gateway.deferChannelBusy(flight, now, esp_random());
           rx(); // resume reception while the low-priority POLL backs off
         } else {

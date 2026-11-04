@@ -568,12 +568,12 @@ void channelAccess() {
   CHECK(j.frame.sequence == 19 && j.frame.session == 2026);
   uint32_t delay = channelBackoffMs(42, 1);
   CHECK(g.deferChannelBusy(j, 1600, 42));
-  CHECK(g.cadBusy == 1 && g.cadDeferred == 1);
+  CHECK(g.cadBusy == 0 && g.cadDeferred == 1);
   CHECK(!g.nextTx(1600 + delay - 1, j));
   CHECK(g.nextTx(1600 + delay, j));
   CHECK(j.frame.sequence == 19 && j.cadDeferrals == 1);
   CHECK(g.deferChannelBusy(j, 1600 + delay, 31));
-  CHECK(g.cadBusy == 2 && g.cadDeferred == 2);
+  CHECK(g.cadBusy == 0 && g.cadDeferred == 2);
   uint64_t again = 1600 + delay + channelBackoffMs(31, 2);
   CHECK(g.nextTx(again, j));
   CHECK(j.frame.sequence == 19 && j.cadDeferrals == 2);

@@ -311,7 +311,6 @@ bool Gateway::nextTx(uint64_t now, TxJob &job) {
 bool Gateway::deferChannelBusy(const TxJob &job, uint64_t now, uint32_t entropy) {
   if (job.frame.type != Poll || job.node >= InventoryCapacity)
     return false;
-  ++cadBusy;
   TxJob retry = job;
   ++retry.cadDeferrals;
   retry.ready = now + channelBackoffMs(entropy, retry.cadDeferrals);
