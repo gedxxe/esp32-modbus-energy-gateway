@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-source = (ROOT / "firmware/board/reference.h").read_text(encoding="utf-8")
+source = (ROOT / "firmware/include/board/reference.h").read_text(encoding="utf-8")
 nets = {
     "SCK": ("sck", "4", "12"),
     "MOSI": ("mosi", "6", "14"),

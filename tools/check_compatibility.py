@@ -33,11 +33,11 @@ def dependencies(ini: configparser.ConfigParser, section: str) -> dict[str, str]
 
 def validate(node_platformio: Path | None = None) -> None:
     lock = json.loads((ROOT / "docs/upstream-package-lock.json").read_text(encoding="utf-8"))
-    gateway = read_ini(ROOT / "platformio.ini")
+    gateway = read_ini(ROOT / "firmware/platformio.ini")
     env = "env:esp32c3"
     assert gateway.get("platformio", "default_envs") == "esp32c3"
-    assert gateway.get("platformio", "src_dir") == "firmware"
-    assert gateway.get("platformio", "include_dir") == "firmware"
+    assert gateway.get("platformio", "src_dir", fallback="src") == "src"
+    assert gateway.get("platformio", "include_dir", fallback="include") == "include"
     assert gateway.get(env, "board") == lock["gateway_board"]
     assert gateway.get(env, "framework") == lock["framework"]
     assert gateway.get(env, "platform") == lock["platform"]
@@ -56,7 +56,7 @@ def validate(node_platformio: Path | None = None) -> None:
         assert node.get(upstream, "platform") == lock["platform"]
         for name, expected in lock["shared_libraries"].items():
             assert dependencies(node, upstream).get(name) == expected, f"Node mismatch: {name}"
-    codec = (ROOT / "firmware/core/protocol.h").read_text(encoding="utf-8")
+    codec = (ROOT / "firmware/include/core/protocol.h").read_text(encoding="utf-8")
     for signature in ["HeaderSize = 24", "TagSize = 16", "MaxPayload = 112",
                       "Hello = 1", "Ack = 2", "Telemetry = 3", "Poll = 4",
                       "Checkpoint = 5"]:
@@ -66,10 +66,8 @@ def validate(node_platformio: Path | None = None) -> None:
     assert bytes.fromhex(vector["packet_hex"]) == (
         bytes.fromhex(vector["body_hex"]) + bytes.fromhex(vector["tag_hex"]))
     assert len(bytes.fromhex(vector["tag_hex"])) == 16
-    assert (ROOT / "firmware/board/reference.h").exists()
-    print("NOTICE: shared factory carrier 915 MHz is for software compatibility only; "
-          "do not enable it for Indonesia LPWAN. Configure both endpoints to a "
-          "permitted 920-923 MHz carrier, e.g. 921 MHz, before TX.")
+    assert (ROOT / "firmware/include/board/reference.h").exists()
+    print("INFO: both endpoints retain their 915 MHz default software carrier; confirm RF authorization and EIRP before deployment.")
     print("PASS: gateway ESP32-C3 PlatformIO packages, wire contract and vector agree "
           "with pinned read-only S3 node reference")
 

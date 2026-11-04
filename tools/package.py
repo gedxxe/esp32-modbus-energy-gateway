@@ -17,7 +17,7 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
-BUILD = ROOT / ".pio/build/esp32c3"
+BUILD = ROOT / "firmware/.pio/build/esp32c3"
 RELEASE = ROOT / "release"
 VERSION = "0.2.0-rc1"
 ARCHIVE = RELEASE / f"midea-engineering-gateway-c3-{VERSION}.zip"
