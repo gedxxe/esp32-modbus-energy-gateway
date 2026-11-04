@@ -1,9 +1,48 @@
-# RF deployment checklist — Indonesia (Midea factory)
+<p align="left"><img src="assets/midea-brand.svg" alt="Midea" width="185" /></p>
 
-The source defaults currently use **915 MHz** on both the ESP32-S3 node and the ESP32-C3 gateway so their factory software settings match. This is a software interoperability default, **not a recommended transmit frequency for an Indonesian LPWAN installation**. The gateway ships with RF disabled until commissioned. Before enabling any RF transmitter at the factory, open each node's local LoRa configuration and the gateway's **Gateway & radio** page and set a common authorized frequency such as **921 MHz**, inside the applicable 920–923 MHz band. The frequency alone is not sufficient: carrier, bandwidth, SF, CR, preamble, sync word, node/gateway IDs and per-node keys must match. This manual configuration does **not** modify the node repository.
+![SX1262](assets/badges/radio.svg) ![C3](assets/badges/board.svg) ![PTMP](assets/badges/protocol.svg)
 
-Regulatory reference: [Peraturan Menteri Komunikasi dan Digital Nomor 2 Tahun 2025, Lampiran II, Bagian II, LPWAN](https://peraturan.bpk.go.id/Download/378118/permenkomdigi-no-2-tahun-2025.pdf). The regulation lists the **920–923 MHz** LPWAN band, a **250 kHz maximum bandwidth per channel**, a **1% uplink and 1% downlink duty cycle**, maximum **400 mW (26 dBm) EIRP** for gateway/base stations and **100 mW (20 dBm) EIRP** for end nodes. Confirm any later amendments and equipment certification status before deployment. The radio output-power setting is not EIRP: antenna gain and feedline loss must be included. Example: 14 dBm conducted + 6 dBi antenna − 1 dB coax loss = 19 dBm EIRP. This calculation is illustrative and is not a measurement of your Moxon antenna or finished installation.
+# Radio parameters, antenna gain and regional reference
 
-The gateway currently accepts a broad SX1262 hardware frequency range and BW500 settings because the binary protocol is shared with a configurable node firmware. Its 1% software airtime gate is a **pacing mechanism**, not evidence of a compliant certified radio product. The system needs a country-specific provisioning check, real RF power measurement, duty audit including restarts and regulatory approval before it is commissioned as an industrial radio network. Do not assume that seeing an initialized radio in the dashboard authorizes transmission. A deployment test must document actual RF settings, antenna type/gain, feeder loss, location, authorization and interference observations.
+[← README](../README.md) · [Hardware](HARDWARE.md) · [Collision control](COLLISION_CONTROL.md) · [Wiring](assets/wiring-c3.svg)
 
-For this repository audit the code changes are restricted to the **gateway**. No node package, default node AP credential, or other node source setting has been changed or pushed. For a 921 MHz bench test in Indonesia, configure and save 921 MHz on **both** devices through their existing local configuration interfaces, and verify the selected SX1262 module/antenna supports the frequency before transmitting.
+Both ESP32-S3 node and ESP32-C3 gateway ship with an **unchanged 915 MHz software default**. Each firmware initially configures its SX1262 at **14 dBm TX power** with 125 kHz bandwidth, SF7, CR4/5, preamble 8 and sync 0x12. These defaults are identical for protocol interoperability. They do not certify any specific antenna, country-specific band or final emitted field strength.
+
+<details open>
+<summary><b>RF power and your Moxon antenna</b></summary>
+
+Transmitter **conducted output power** is not equivalent to **EIRP** (effective isotropic radiated power). Use:
+
+```text
+EIRP (dBm) = radio TX power (dBm) + antenna gain (dBi) − cable/connectors loss (dB)
+```
+
+Illustration only: 14 dBm conducted + 6 dBi antenna − 1 dB feedline loss = **19 dBm EIRP**. Actual Moxon gain, VSWR, cable loss, mounting, regulatory permissions and emitted power must be verified, not inferred from the firmware setting. The source validation allows **0–22 dBm** conducted TX settings, but that range is a radio-driver/configuration bound, **not** a declaration that every setting is appropriate for the attached antenna or radio jurisdiction.
+
+</details>
+
+<details>
+<summary><b>Indonesia LPWAN class-license reference</b></summary>
+
+[Permenkomdigi Nomor 2 Tahun 2025, Lampiran II](https://peraturan.bpk.go.id/Download/378118/permenkomdigi-no-2-tahun-2025.pdf) describes the following 920–923 MHz LPWAN category (read the complete regulation and current equipment requirements):
+
+| Parameter | Reference in regulation |
+| --- | --- |
+| LPWAN frequency band | 920–923 MHz |
+| Max bandwidth per channel | 250 kHz |
+| Duty cycle | 1% uplink, 1% downlink |
+| Gateway EIRP | Maximum 400 mW / 26 dBm |
+| Node EIRP | Maximum 100 mW / 20 dBm |
+
+The **915 MHz software default remains unchanged** in both repositories as requested. This table is a regional regulatory reference, **not** a firmware frequency override, an authorization for transmission outside the listed class, or proof of equipment certification.
+
+</details>
+
+<details>
+<summary><b>PTMP site acceptance</b></summary>
+
+With the node and gateway on the same permitted PHY, record actual conducted power, antenna and connector gain/loss, observed RSSI/SNR, packet loss, retransmissions, CAD busy/clear counts, archive transfer time and duty cycle across restarts. SX1262 supports half-duplex communication; a Moxon antenna's radiation pattern can improve coverage in a preferred direction but cannot prevent two mutually hidden nodes from transmitting at the same time.
+
+</details>
+
+The gateway radio remains **disabled until commissioned**, with the initial inventory empty. HMAC keys, node IDs and gateway IDs must be configured per installation. Do not expose the gateway's local commissioning HTTP service to the public Internet.

@@ -1,4 +1,9 @@
-# ESP32-C3 reference hardware
+<p align="left"><img src="assets/midea-brand.svg" alt="Midea" width="185" /></p>
+
+![C3](assets/badges/board.svg) ![LoRa](assets/badges/protocol.svg) ![RadioLib](assets/badges/radiolib.svg)
+
+
+# ESP32-C3 reference hardware / SX1262 wiring
 
 The owner corrected the first target to **ESP32-C3**. The actual development-board model has not been supplied. This implementation selects **Espressif ESP32-C3-DevKitM-1**, 160 MHz single application core, 4 MB flash, no PSRAM. It uses the onboard USB-to-UART bridge for upload/115200-baud diagnostics. Native USB pins GPIO18/19 are preserved. GPIO20/21 UART, GPIO8 LED, strapping GPIO2/8/9 and flash GPIO12–17 are not used by the radio adapter. GPIO4–7 can no longer be used for external pad JTAG when wired to the radio.
 
@@ -6,7 +11,7 @@ Board basis: [Espressif user guide](https://docs.espressif.com/projects/esp-dev-
 
 ## Wiring
 
-GPIO labels below are **not header pin ordinals**. This reference must be checked against the purchased board before enabling radio. Edit only `firmware/board/reference.h` for a different board and add/verify its build environment. Protocol/inventory/application code has no pin constants.
+GPIO labels below are **not header pin ordinals**. This reference must be checked against the purchased board before enabling radio. Edit only `firmware/include/board/reference.h` for a different board and add/verify its build environment. Protocol/inventory/application code has no pin constants.
 
 | DevKitM-1 signal | Ra-01SH pad | Net | Direction from C3 |
 |---|---|---|---|
@@ -23,7 +28,7 @@ GPIO labels below are **not header pin ordinals**. This reference must be checke
 
 ![ESP32-C3 wiring with explicit radio pad and GPIO references](assets/wiring-c3.svg)
 
-The exported visual netlist and CSV are checked by `python tools/check_wiring.py` in CI; the radio adapter values in `firmware/board/reference.h` are the compile-time source of truth. The diagram does not identify your particular clone's physical header-pin order.
+The exported visual netlist and CSV are checked by `python tools/check_wiring.py` in CI; the radio adapter values in `firmware/include/board/reference.h` are the compile-time source of truth. The diagram does not identify your particular clone's physical header-pin order.
 
 Machine-readable companion: [wiring-c3.csv](wiring-c3.csv). Drawing is a logical net diagram, not the physical module orientation. Use the manual's pad diagram for assembly. Radio SPI is 2 MHz mode 0.
 
@@ -46,3 +51,9 @@ Use regulated 3.3 V, never 5 V or a GPIO supply. The manual asks for more than 2
 | archives | 0x220000 | 0x1E0000 | LittleFS, 64 immutable record slots |
 
 The filesystem image is for **initial provisioning only**. Reflashing it overwrites archives. Ordinary application updates must preserve `gw_nvs` and `archives`.
+
+<details><summary><b>ESP32-C3 board caution / pin identification</b></summary>
+
+The table uses **GPIO numbers**, not the order of physical pins in a DevKit header. Actual C3 boards or clones may route LED, USB-UART and other signals differently. The specified `board = esp32-c3-devkitm-1` is a reference build target, not proof of the purchased hardware revision. Match each wire to printed GPIO labels and the module datasheet before radio power-up.
+
+</details>

@@ -1,37 +1,70 @@
-# PTMP medium access, collision handling and recovery
+<p align="left"><img src="assets/midea-brand.svg" alt="Midea" width="190" /></p>
 
-The node and gateway form a **point-to-multipoint star network** using the same RadioLib 7.8.1 / SX1262 LoRa PHY and the Energy Station application protocol v1. Each node has its own network/node identity and 32-byte HMAC key, but **radio addressing does not allocate channel time**. Only one radio packet can be received by a single-SX1262 gateway at a time. The gateway is half-duplex and cannot receive while sending an ACK or POLL. These are radio limitations, not JSON, Modbus or PlatformIO issues.
+![LoRa v1](assets/badges/protocol.svg) ![SX1262](assets/badges/radio.svg) ![RadioLib 7.8.1](assets/badges/radiolib.svg)
 
-![Gateway and node topology](assets/ptmp-topology.svg)
+# LoRa PTMP · collision-aware medium access
 
-## Channel access policy implemented in the gateway
+[← README](../README.md) · [Topology](NODE_COMPATIBILITY.md) · [Request flow](RADIO_DESIGN.md) · [PlatformIO](PLATFORMIO_VSCODE.md)
 
-The gateway uses a single radio-owner FreeRTOS task and bounded queues. It maintains per-node session, replay and request states, stores outgoing downlink sequences before transmission, and schedules TX with a shared airtime budget. This provides deterministic ownership of the radio even when HTTP requests, archive service and incoming telemetry happen concurrently. ACK frames get the highest queue priority because the node is already waiting for confirmation. Only lower-priority POLL frames are subject to **SX1262 Channel Activity Detection (CAD)**, using the non-blocking RadioLib 7.8.1 `startChannelScan()` and `getChannelScanResult()` API.
+<a href="assets/channel-access.svg"><img src="assets/channel-access.svg" width="100%" alt="Nonblocking CAD and bounded random-backoff state machine" /></a>
 
-For a POLL, the gateway first enters CAD instead of transmitting immediately. If the radio reports `RADIOLIB_CHANNEL_FREE`, the gateway starts TX; a detected LoRa signal causes it to resume RX and requeue the exact same POLL, keeping the already-reserved downlink sequence and session. The retry uses a bounded random delay supplied by the ESP32 hardware RNG. The contention window increases with consecutive busy-channel observations and stops growing beyond a configured limit. Repeated busy results eventually hit the original request deadline and report **unavailable**, not success. A radio CAD timeout or driver fault triggers error reporting and normal driver recovery. All states share a single SPI owner. No extra task drives the SX1262 concurrently.
+**Compatibility contract:** the gateway and ESP32-S3 node use the unchanged **Energy Station protocol v1**. At the source defaults, both use **915 MHz, BW 125 kHz, SF7, CR4/5, preamble 8, sync 0x12, CRC enabled and 14 dBm configured TX power**. Node application packet fields and HMAC tags do not change when the channel access method changes.
 
-![Gateway POLL and telemetry sequence](assets/poll-sequence.svg)
+## Architecture
 
-The constants are defined in `firmware/core/channel_access.h`: CAD watchdog 1,500 ms, base deferral 300 ms, randomized window up to 12,000 ms, capped exponential growth. The node's own HELLO and telemetry transmissions are still controlled by its *unchanged* uplink scheduler, initial randomized contention and ACK retries. Gateway CAD does **not** sense every hidden sender and does **not** coordinate node-to-node uplink starts. It can reduce gateway-generated interference with ongoing LoRa activity, not remove simultaneous uplink collisions. It is not TDMA, LoRaWAN, listen-before-talk regulatory certification, or a guarantee of availability.
+<a href="assets/ptmp-topology.svg"><img src="assets/ptmp-topology.svg" width="100%" alt="Four independent ESP32-S3 nodes and a single ESP32-C3 gateway" /></a>
 
-## Traffic priorities and backpressure
-
-| Priority | Activity | Policy |
+| Layer | Gateway ESP32-C3 | Node ESP32-S3 |
 | --- | --- | --- |
-| Highest | ACK for authenticated HELLO, TELEMETRY or CHECKPOINT | Queue first, coalesce identical ACKs, transmit with shared duty budget; skip CAD |
-| Next | Session challenge POLL and manual refresh/checkpoint request | Reserve unique sequence in flash, wait for radio gate, use CAD and bounded backoff |
-| Lowest | Automatic stale-data POLL | Only one outstanding request, round-robin inventory, after missed-report grace period; use CAD and randomized backoff |
+| Radio owner | One FreeRTOS task owns SX1262 SPI / RX / CAD / TX | One FreeRTOS radio task on its supported application core |
+| Uplink scheduling | Listens to independent node uplinks | Autonomous HELLO, TELEMETRY, CHECKPOINT |
+| Channel sensing | CAD before **POLL**; priority ACK bypasses CAD | CAD before **every uplink** in node companion PR |
+| Congestion handling | Shared TX airtime gate, ACK queue reserve, fair scheduling | Hardware-random bounded exponential backoff; original frame retained |
+| Retransmission | POLL sequence is reserved durably, not changed while CAD defers | Retries preserve immutable bytes, session and sequence |
+| Packet integrity | Per-node HMAC key, address, session, replay window and correlation | Validate HMAC, destination, session and exact ACK / POLL sequence |
+| Flash safety | Durable POLL counter before transmission | Existing local checkpoint journal independently preserved |
 
-The software airtime gate is shared by all gateway downlinks: it delays the next TX by roughly 100 times the previous packet airtime, implementing approximately a 1% pacing budget. At the nominal SF7/BW125/CR4/5 settings, the node protocol reference calculates an ACK of 41 bytes at approximately 87.3 ms. Four hourly uplinks therefore need approximately 349 ms of gateway ACK airtime each hour before retries and checkpoints, far below 36 seconds/hour of a 1% airtime budget. This calculation is **not a throughput guarantee**. At high spreading factors, heavy retry load or simultaneous archives, the capacity and ACK latency change significantly. Even a low average airtime cannot guarantee that two randomly aligned node packets never overlap. Configure the node transmission interval and RF parameters for the actual site and leave substantial budget for retries and maintenance requests.
+<details open>
+<summary><b>How channel sensing works</b></summary>
 
-No gateway-side code can stop two autonomous node uplinks from colliding when both nodes cannot hear each other. A true slot-based scheduler would require protocol changes to the ESP32-S3 nodes: trustworthy time synchronization, periodic slot assignment, drift guard bands, loss recovery and an authenticated schedule version. Those changes are **out of scope** because the node repository must remain untouched. The present solution uses CAD/backoff on optional downlinks, node randomized retries, air-time budgeting, queue limits, and deadline-aware request cancellation, without misrepresenting these as TDMA.
+The SX1262 uses RadioLib `startChannelScan()` without blocking the radio task. An interrupt indicates that CAD has completed; `getChannelScanResult()` returns whether LoRa activity was detected. A clear result proceeds to the pending TX. A busy result returns to RX and defers transmission using a bounded random delay; the pending LoRa v1 frame **is not re-encoded with a different sequence**. A CAD error or timeout is counted separately and follows the recovery path. Both implementations can still receive a delayed matching ACK during a later retry-backoff interval.
 
-## Monitoring and acceptance
+Gateway ACKs are **not delayed by CAD** because the sender is already awaiting an acknowledgment. ACKs still obey the shared radio-owner and pacing budget. The gateway reserves **16 of its 32 TX queue entries** for ACK traffic, so optional manual or automatic requests cannot occupy every queue slot.
 
-The status API reports `cadBusy`, `cadClear`, `cadErrors` and `cadDeferred` counters alongside accepted packets, duplicate RX, authentication errors, queue drops, timeouts, RSSI/SNR and transmit load. These numbers describe gateway observations. A low CAD-busy count **does not prove** no collisions occurred, because a collided uplink may never be decoded by the receiver. A valid but old kWh value is retained and labelled stale; a correlated POLL response with the energy-valid flag cleared is not a fresh measurement.
+</details>
 
-A deployment test should include four active nodes with their real source meter profiles, one gateway and matched antennas at intended panel locations. Record a one-hour baseline of autonomous telemetry, then deliberately overlap requests and checkpoint retrieval, monitor TX/RX counters and timestamped request completion, reboot an active node, interrupt gateway power and verify durable archive recovery. Perform controlled temporary RF attenuation and one-node power-off tests. Measure each node's report success ratio, worst-case response latency, and effective duty consumption at the selected SF/BW/power before accepting the topology. Interference and building walls must be validated in the factory; a native simulator or successful PlatformIO build cannot prove RF reliability.
+<details>
+<summary><b>Why this is not guaranteed zero-collision TDMA</b></summary>
 
-## Indonesia frequency and airtime constraints
+CAD detects LoRa activity visible to the particular radio and at the selected PHY. Hidden nodes behind different walls can both see a clear channel and transmit simultaneously. Interference from other radio technologies may not be identified by LoRa CAD. Likewise, a gateway POLL or ACK cannot be guaranteed to reach a radio that is transmitting at the same instant because SX1262 is half-duplex.
 
-The upstream node and this gateway currently share a legacy **915 MHz factory software default**, preserved only for source-level compatibility. In Indonesia do not enable transmitter operation on that default: select an allowed carrier such as 921 MHz **locally on both devices**. The [2025 Indonesian LPWAN class-license regulation](RF_COMPLIANCE_ID.md) lists 920–923 MHz and a 1% uplink and downlink duty cycle. The local radio pacing does not replace certification, antenna-EIRP calculations or a power-cycle duty audit. Do not assume node support for BW500 means that bandwidth is legal at the deployment site.
+This design is **CSMA/CA-like with bounded randomized contention**, not negotiated TDMA. True scheduled collision avoidance requires a new jointly implemented and tested protocol version with a trustworthy common timebase, slot grants, guard bands for clock drift, failure/rejoin behavior and a fallback contention window. Retaining protocol v1 avoids deploying an incompatible node while such features are still unverified.
+
+</details>
+
+<details>
+<summary><b>Airtime and capacity calculation</b></summary>
+
+At the default SX1262 settings, the current gateway's RadioLib-compatible airtime equation calculates a **41-byte ACK ≈ 87.296 ms** and a **72-byte TELEMETRY ≈ 133.376 ms**. The one-percent pacing gate delays the next gateway downlink by roughly 100× the previous TX airtime. This is a device-local budget and cannot replace checking aggregate traffic or radio rules.
+
+For example, four nodes each producing one acknowledged telemetry uplink per minute require about **4 × 87.296 ms × 60 = 20.95 seconds of ACK TX per hour**, approximately **0.58% gateway duty**, before HELLOs, archive fragments, POLLs, retries and RF losses. An automatic POLL has a separate packet length and must also enter the duty budget. Increasing SF or channel loading can rapidly change this balance. Inventory capacity of 16 nodes is **not** a measured network capacity.
+
+</details>
+
+<details>
+<summary><b>Recommended hardware acceptance</b></summary>
+
+1. Flash the matching node and gateway firmware, verify correct board ID and SPI pins, then connect matched antennas before enabling TX.
+2. Pair one node: verify signed HELLO → gateway ACK → fresh correlated POLL/TELEMETRY, HMAC and address isolation.
+3. Add nodes 3, 4 and 5 with separate keys and RS485 buses; observe received samples, successful ACKs, duplicate counters, RSSI/SNR, CAD-busy/clear/errors and queue drops.
+4. Compare live and checkpoint kWh against the originating node's validated capture; no double CT/PT scaling and no invented zero on invalid readings.
+5. Inject simultaneous transmissions, RF attenuation, node resets and gateway power interruption. Confirm bounded requests, missing-day semantics, replay rejection, recovery and archive durability.
+6. Document actual antenna gain, feeder loss, output power, airtime, signal quality, report success ratio and worst-case latency. A software build does not establish factory-wall range or zero collisions.
+
+</details>
+
+## Source references and counters
+
+Gateway sources: `firmware/src/radio/service.cpp`, `firmware/include/core/channel_access.h`, `firmware/src/core/gateway.cpp`, `firmware/src/core/scheduler.cpp`. Node counterpart: [LoRa worker and protocol](https://github.com/gedxxe/esp32-modbus-energy/tree/feature/lora-ptmp-anti-collision-20261105/firmware). The gateway status API exposes `cadBusy`, `cadClear`, `cadErrors`, `cadDeferred`, ACKs, HMAC failures, timeouts and queue drops. The node companion exposes the same four CAD counters.
+
+See [radio engineering and legal RF reference](RF_COMPLIANCE_ID.md). **The 915 MHz source default is retained**, while permitted on-air operation, EIRP and equipment certification remain site-specific checks.

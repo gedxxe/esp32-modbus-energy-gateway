@@ -1,4 +1,15 @@
-# Ownership and data flow
+<p align="left"><img src="assets/midea-brand.svg" alt="Midea" width="185" /></p>
+
+![C3](assets/badges/board.svg) ![LoRa](assets/badges/protocol.svg) ![RadioLib](assets/badges/radiolib.svg)
+
+
+# Gateway firmware ownership and data flow
+
+[README](../README.md) · [PTMP](COLLISION_CONTROL.md) · [PlatformIO](PLATFORMIO_VSCODE.md)
+
+<a href="assets/gateway-architecture.svg"><img src="assets/gateway-architecture.svg" width="100%" alt="Gateway radio task, queues, web and storage" /></a>
+
+<details open><summary><b>Logical task / queue flow</b></summary>
 
 ```mermaid
 flowchart LR
@@ -18,7 +29,7 @@ All application tasks are unpinned on the C3's single application core. The ISR 
 
 ## Modules
 
-`firmware/board` contains only pin/module electrical choices. `core` is portable production C++ used unchanged by native tests. `storage` contains versioned bank, sequence reservation and archive logic. `app` connects these through FreeRTOS queues. `radio` is the sole SPI/RadioLib owner. `web` contains bounded local HTTP routes and generated React assets. `main.cpp` only starts services.
+`firmware/include/board` contains the board pin/module reference; the application is compiled from `firmware/src/` and headers are in `firmware/include/`. `core` is portable production C++ used unchanged by native tests. `storage` contains versioned bank, sequence reservation and archive logic. `app` connects these through FreeRTOS queues. `radio` is the sole SPI/RadioLib owner. `web` contains bounded local HTTP routes and generated React assets. `main.cpp` only starts services.
 
 The radio owner uses nonblocking reset/BUSY/startup, RX, TX and 30-second recovery phases. Individual RadioLib SPI BUSY waits are limited to 100 ms and reset probing is disabled. Library initialization is synchronous within the owner and consists of bounded driver transactions; no whole-application busy-wait/reboot recovery is used. TX has airtime + 2 seconds completion bound and returns to RX after TX_DONE. PHY CRC failures and protocol authentication failures are separate counters.
 
@@ -68,3 +79,16 @@ The gateway retains the most recent valid kWh measurement separately from the ne
 ## SX1262 channel access
 
 Low-priority downlinks use `core/channel_access.h` and the nonblocking `RadioPhase::Cad` path in `radio/service.cpp`. The driver transitions between RX, CAD and TX while retaining one SPI owner. When the channel is busy, `Gateway::deferChannelBusy` requeues the *same* durable POLL sequence with a bounded randomized delay. ACKs still bypass CAD to preserve node acknowledgement latency. The `Gateway::nextTx` guard rejects timed-out or canceled POLL state before transmission. A CAD timeout or driver failure enters the existing bounded recovery path. The system does not implement TDMA or coordinated node uplink scheduling. See [medium access and acceptance criteria](COLLISION_CONTROL.md).
+
+<details><summary><b>Project boundaries</b></summary>
+
+| Directory | Responsibility |
+| --- | --- |
+| `firmware/src/core/` + `firmware/include/core/` | Portable application codec, scheduler, replay and checkpoint model |
+| `firmware/src/radio/` | Sole SX1262 SPI owner and CAD / RX / TX state machine |
+| `firmware/src/app/` | FreeRTOS queues and scheduling |
+| `firmware/src/storage/` | NVS sequence and durable LittleFS archive |
+| `firmware/src/web/` | Local HTTP handling |
+| `dashboard/` | React sources and generated `firmware/include/web/assets.h` |
+
+</details>

@@ -67,6 +67,10 @@ def validate(node_platformio: Path | None = None) -> None:
         bytes.fromhex(vector["body_hex"]) + bytes.fromhex(vector["tag_hex"]))
     assert len(bytes.fromhex(vector["tag_hex"])) == 16
     assert (ROOT / "firmware/include/board/reference.h").exists()
+    config_text = (ROOT / "firmware/include/core/config.h").read_text(encoding="utf-8")
+    assert "uint32_t hz = 915000000" in config_text
+    assert "int8_t dbm = 14" in config_text
+    assert not (ROOT / "platformio.ini").exists(), "Open firmware/ as the PlatformIO project"
     print("INFO: both endpoints retain their 915 MHz default software carrier; confirm RF authorization and EIRP before deployment.")
     print("PASS: gateway ESP32-C3 PlatformIO packages, wire contract and vector agree "
           "with pinned read-only S3 node reference")

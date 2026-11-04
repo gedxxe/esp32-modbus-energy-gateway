@@ -1,17 +1,52 @@
-# Gateway verification
+<p align="left"><img src="assets/midea-brand.svg" alt="Midea" width="185" /></p>
 
-The reference gateway targets ESP32-C3-DevKitM-1 with an SX1262 Ra-01SH V1.1. The current receiver is designed to interoperate with Energy Station LoRa protocol v1 from `gedxxe/esp32-modbus-energy`. Results from a software regression suite establish behavior of the host test harness; they must not be interpreted as measurements of RF range or verified electrical energy readings.
+![PlatformIO](assets/badges/platformio.svg) ![C++17](assets/badges/cplusplus.svg) ![RadioLib](assets/badges/radiolib.svg)
 
-## Reproducible checks
+# Gateway verification and reproducible evidence
 
-From the repository root, use `python tools/security_audit.py` to examine tracked files for private workstation paths and common credential formats. Then execute `python tools/test_native.py` to exercise the actual gateway codec, HMAC, replay handling, sequence reservation, checkpoint decoder, radio scheduler and automated refresh policy. The tests include multiple node identities, invalid packet authentication, repeated frames and lost response cases. Any status claim must refer to a specific commit and a completed test run. `node --test` in `dashboard/` runs the UI tests after `npm ci` and `npm run build`.
+[← README](../README.md) · [PlatformIO](PLATFORMIO_VSCODE.md) · [Collision control](COLLISION_CONTROL.md) · [Flash safety](COMMISSIONING.md)
 
-The dashboard build regenerates `firmware/web/assets.h`, which is compiled into the ESP32 web server. The firmware target is built using `python -m platformio run -e esp32c3`. The corresponding CI workflow builds the browser bundle, verifies its tests, checks the native code and then builds the gateway firmware. Always check that the generated web bundle is current. Release binaries and ELF files should be generated as CI artifacts rather than copied into the source repository.
+**The new gateway project root is `firmware/`**, containing `platformio.ini`, `src/`, `include/` and `partitions.csv`. The companion ESP32-S3 node follows the same PlatformIO convention but has a different board. GitHub Actions validates software, not physical RF performance.
 
-## Physical acceptance still required
+<details open>
+<summary><b>Local reproducibility commands</b></summary>
 
-The software cannot verify a particular ESP32-C3 pinout, SX1262 crystal vs TCXO requirements, RF switch, installation antenna or factory coverage. Commissioning must first record bidirectional HELLO/ACK exchange with one node, successful candidate-session confirmation, manual POLL mode 0 followed by correlated TELEMETRY, matching kWh values from the node and gateway, retries, timeouts and RF quality. Repeat with four nodes at the selected interval, disable one node during a request, reboot the gateway, and confirm that persisted checkpoint archives remain intact. The gateway's 1% airtime policy and randomized node backoff reduce channel load but cannot guarantee collision-free operation. Physical acceptance remains open until those results exist.
+```powershell
+# From gateway Git repository root
+python tools/security_audit.py --history
+python tools/check_compatibility.py
+python tools/check_wiring.py
+python tools/test_native.py
 
-## Audit follow-up: PTMP / PlatformIO C3 branch
+cd dashboard
+npm ci
+npm run build
+npm test
+cd ..
 
-The gateway-only branch `audit/platformio-ptmp-c3-20261105` introduces nonblocking SX1262 CAD for discretionary POLL traffic, bounded hardware-random deferral on a busy channel and a guard against sending a POLL after its request expires. Native regression adds CAD policy and up to four node identities on one gateway. The exact source and version contract is checked with `tools/check_compatibility.py`, while `tools/check_wiring.py` validates C3 GPIO against Ra-01SH pads and parses all four SVGs. CI regenerates the React asset and fails on any mismatch, compiles ESP32-C3 firmware using the same pinned pioarduino platform as the node, builds an initial filesystem image without flashing and verifies the flash partition layout. The public ZIP excludes ELF debug symbols and is verified with source/image SHA256. The current test result is visible on [GitHub Actions](https://github.com/gedxxe/esp32-modbus-energy-gateway/actions); do not quote previous assertion totals as evidence for new commits. Real four-node RF acceptance remains **not performed**.
+python -m platformio run --project-dir firmware -e esp32c3
+python -m platformio run --project-dir firmware -e esp32c3 -t buildfs
+python tools/check_flash_layout.py
+python tools/package.py
+python tools/package.py --verify
+```
+
+For VS Code, open **`firmware/`** and click **PROJECT TASKS → esp32c3 → Build** instead. The `firmware/include/web/assets.h` bundle must match the React generator. `tools/pio_flash_guard.py` protects the 0xE000 sequence journal from the ESP32-C3 factory boot image. A routine upgrade must not overwrite the LittleFS archives.
+
+</details>
+
+<details>
+<summary><b>Regression coverage and package checks</b></summary>
+
+The native tests compile the **production** gateway codec/HMAC, per-node replay and session validation, archived day reconstruction and CRC, scheduler fairness/ACK reserve, CAD deferral policy, downlink sequence reservations across power cycles, queue capacity and four-node identity separation. The independent public wire vector is cross-checked against Python SHA256. The dashboard tests verify authentication, missing/stale kWh semantics and embedded gzip parity. CI also parses generated SVG images, wiring netlists and PlatformIO package versions.
+
+Production firmware is compiled for **`esp32-c3-devkitm-1`** using pinned pioarduino **55.03.311**, RadioLib **7.8.1**, ArduinoJson **7.3.1**. After the build, the actual partition/image map and source+flash ZIP SHA256 are checked. The ZIP intentionally excludes ELF debugging data. See [CI workflow](../.github/workflows/ci.yml) and [GitHub Actions](https://github.com/gedxxe/esp32-modbus-energy-gateway/actions) for the **exact commit's** results.
+
+</details>
+
+<details>
+<summary><b>Unverified physical conditions</b></summary>
+
+**Still awaiting actual radios:** ESP32-C3/ESP32-S3 electrical supply and antenna checks, RF switch and oscillator confirmation, four-node PTMP throughput under real interference, CAD outcomes, gateway ACK latency, archive durability after sudden power loss, Modbus readings at real meters, and installation-range evidence with walls. Software-only tests must not be cited as physical collision-free or industrial-grade acceptance.
+
+</details>

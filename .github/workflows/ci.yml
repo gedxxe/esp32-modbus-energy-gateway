@@ -19,6 +19,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Check out pinned ESP32-S3 peer source (read-only)
+        uses: actions/checkout@v4
+        with:
+          repository: gedxxe/esp32-modbus-energy
+          ref: 737cfff590c0cbea33895df17c3e3ffc06449e15
+          path: .peer
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -30,9 +37,13 @@ jobs:
       - name: Repository privacy and historical report
         run: python tools/security_audit.py --history
       - name: Upstream package and LoRa wire compatibility (read-only baseline)
-        run: python tools/check_compatibility.py
+        run: python tools/check_compatibility.py --node-platformio .peer/firmware/platformio.ini
       - name: ESP32-C3 GPIO and wiring-diagram integrity
         run: python tools/check_wiring.py
+      - name: Standard PlatformIO folder and include resolution
+        run: python tools/check_layout.py
+      - name: Compile actual node and gateway wire contract together
+        run: python tools/test_peer_wire.py .peer
       - name: Native radio, scheduler and persistence regression
         run: python tools/test_native.py
       - name: Build offline dashboard and run DOM tests
