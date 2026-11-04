@@ -627,6 +627,36 @@ void automaticRefresh() {
   g.configure(config());
   CHECK(g.automaticPolls == 0 && g.automaticPollErrors == 0);
 }
+void ackQueueReserve() {
+  Scheduler s;
+  auto c = config();
+  TxJob j;
+  j.node = 0;
+  j.frame = frame(c, 0, Poll, 1, 1200);
+  j.frame.length = 5;
+  j.ready = 0;
+  j.expires = 200000;
+  // Even if user traffic surges, background/manual POLLs may not consume
+  // the slots reserved for acknowledgements.
+  for (size_t i = 0; i < TxCapacity - TxAckReserve; ++i) {
+    j.frame.sequence = uint32_t(i + 1);
+    CHECK(s.enqueue(j));
+  }
+  CHECK(s.depth == TxCapacity - TxAckReserve);
+  CHECK(!s.enqueue(j));
+  CHECK(s.drops == 1);
+  for (size_t i = 0; i < TxAckReserve; ++i) {
+    j.frame = acknowledge(frame(c, 0, Telemetry, uint32_t(i + 100), 1200));
+    CHECK(s.enqueue(j));
+  }
+  CHECK(s.depth == TxCapacity);
+  j.frame = acknowledge(frame(c, 0, Telemetry, 250, 1200));
+  CHECK(!s.enqueue(j));
+  CHECK(s.drops == 2);
+  TxJob first;
+  CHECK(s.pop(0, first) && first.frame.type == Ack);
+  CHECK(s.depth == TxCapacity - 1);
+}
 void scheduler() {
   Scheduler s;
   auto c = config();
@@ -723,6 +753,7 @@ int main(int argc, char **argv) {
   reassembly();
   sessions();
   scheduler();
+  ackQueueReserve();
   automaticRefresh();
   channelAccess();
   fourNodePtmp();
