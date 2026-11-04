@@ -133,6 +133,10 @@ esp_err_t status(httpd_req_t *req) {
   COUNT(durable);
   COUNT(lateAck);
   COUNT(storageErrors);
+  c["cadBusy"] = view.cadBusy;
+  c["cadClear"] = view.cadClear;
+  c["cadErrors"] = view.cadErrors;
+  c["cadDeferred"] = view.cadDeferred;
 #undef COUNT
   JsonArray nodes = d["nodes"].to<JsonArray>();
   d["inventoryCapacity"] = InventoryCapacity;

@@ -68,6 +68,7 @@ void Gateway::configure(const Config &c) {
   scheduler.clear();
   refreshPolicy.reset();
   automaticPolls = automaticPollErrors = 0;
+  cadBusy = cadClear = cadErrors = cadDeferred = 0;
   assembly = Assembly{};
   archiveOwner = -1;
   for (unsigned i = 0; i < 16; i++)
@@ -294,10 +295,41 @@ bool Gateway::nextTx(uint64_t now, TxJob &job) {
   if (!config.enabled)
     return false;
   while (scheduler.pop(now, job)) {
-    if (job.revision == config.revision && config.nodes[job.node].enabled)
-      return true;
+    if (job.node >= InventoryCapacity || job.revision != config.revision ||
+        !config.nodes[job.node].enabled)
+      continue;
+    if (job.frame.type == Poll) {
+      const Pending &p = nodes[job.node].pending;
+      if (p.state != RequestState::Queued || p.correlation != job.frame.sequence ||
+          p.session != job.frame.session)
+        continue; // Ignore canceled or timed-out downlinks, never send stale POLLs.
+    }
+    return true;
   }
   return false;
+}
+bool Gateway::deferChannelBusy(const TxJob &job, uint64_t now, uint32_t entropy) {
+  if (job.frame.type != Poll || job.node >= InventoryCapacity)
+    return false;
+  TxJob retry = job;
+  ++retry.cadDeferrals;
+  retry.ready = now + channelBackoffMs(entropy, retry.cadDeferrals);
+  Pending &p = nodes[job.node].pending;
+  if (p.state != RequestState::Queued || p.correlation != job.frame.sequence ||
+      p.session != job.frame.session)
+    return false; // A retired request stays retired.
+  if (retry.ready >= retry.expires) {
+    p.state = RequestState::Unavailable;
+    ++counters.timeouts;
+    return false;
+  }
+  if (!scheduler.enqueue(retry)) {
+    p.state = RequestState::Error;
+    ++counters.queueDrops;
+    return false;
+  }
+  ++cadDeferred;
+  return true;
 }
 void Gateway::transmitted(const TxJob &j, bool ok, uint64_t now, uint32_t airMs) {
   scheduler.charge(now, airMs);

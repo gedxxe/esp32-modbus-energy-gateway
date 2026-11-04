@@ -2,7 +2,7 @@
 #pragma once
 #include <cstdint>
 namespace gw {
-enum class RadioPhase { Disabled, ResetLow, ResetWait, BusyWait, Initializing, Rx, Tx, Recovery };
+enum class RadioPhase { Disabled, ResetLow, ResetWait, BusyWait, Initializing, Rx, Cad, Tx, Recovery };
 enum class RadioAction { None, ReleaseReset, Initialize, BusyTimedOut, Restart };
 // Driver-independent clock used by the actual radio owner and absent-module regression.
 class RadioLifecycle {

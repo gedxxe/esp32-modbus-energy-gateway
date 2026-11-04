@@ -4,6 +4,9 @@
 #include "config.h"
 namespace gw {
 constexpr size_t TxCapacity = 32;
+// Keep one reserved ACK queue slot per configured node identity. The other
+// half of the 32-job queue can hold at most one POLL per inventory slot.
+constexpr size_t TxAckReserve = InventoryCapacity;
 uint32_t airtimeUs(const Phy &p, size_t bytes);
 struct TxJob {
   bool used = false;
@@ -11,6 +14,7 @@ struct TxJob {
   Frame frame{};
   uint64_t expires = 0, ready = 0;
   uint32_t revision = 0;
+  uint8_t cadDeferrals = 0;
 };
 class Scheduler {
   TxJob jobs[TxCapacity]{};

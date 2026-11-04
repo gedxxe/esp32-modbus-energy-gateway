@@ -44,7 +44,7 @@ void IRAM_ATTR onIRQ() {
 using Phase = RadioPhase;
 RadioLifecycle lifecycle;
 Phase &phase = lifecycle.phase;
-uint64_t txStart = 0, lastView = 0;
+uint64_t txStart = 0, lastView = 0, cadStart = 0;
 uint32_t txAir = 0, crcErrors = 0, driverErrors = 0;
 int16_t code = 0;
 bool initialized = false;
@@ -69,7 +69,7 @@ void rx() {
 void configure() {
   initialized = false;
   irq = false;
-  if (phase == Phase::Rx || phase == Phase::Tx)
+  if (phase == Phase::Rx || phase == Phase::Cad || phase == Phase::Tx)
     radio.standby();
   if (!gateway.config.enabled) {
     lifecycle.start(false, mono());
@@ -114,6 +114,29 @@ void begin() {
   rx();
   logEvent("SX1262 initialized; awaiting authenticated node traffic");
 }
+void transmitFlight(uint64_t now) {
+  if (flight.frame.type == Poll &&
+      (gateway.nodes[flight.node].pending.state != RequestState::Queued ||
+       now >= flight.expires)) {
+    rx(); // Request was retired while CAD was running.
+    return;
+  }
+  size_t n = encode(flight.frame, gateway.config.nodes[flight.node].key, wire);
+  if (!n) {
+    gateway.transmitted(flight, false, now, 1);
+    rx();
+    return;
+  }
+  txAir = uint32_t((radio.getTimeOnAir(n) + 999) / 1000);
+  if (!txAir) txAir = 1;
+  int16_t r = radio.startTransmit(wire, n);
+  txStart = now;
+  if (!r) phase = Phase::Tx;
+  else {
+    gateway.transmitted(flight, false, now, txAir);
+    failure(r);
+  }
+}
 void publish() {
   View v;
   v.configured = true;
@@ -129,6 +152,10 @@ void publish() {
   v.counters = gateway.counters;
   v.automaticPolls = gateway.automaticPolls;
   v.automaticPollErrors = gateway.automaticPollErrors;
+  v.cadBusy = gateway.cadBusy;
+  v.cadClear = gateway.cadClear;
+  v.cadErrors = gateway.cadErrors;
+  v.cadDeferred = gateway.cadDeferred;
   v.radioStackMin = uxTaskGetStackHighWaterMark(nullptr);
   v.physicalCRC = crcErrors;
   v.driverErrors = driverErrors;
@@ -141,6 +168,7 @@ void publish() {
           phase == Phase::Disabled   ? "disabled"
           : phase == Phase::Tx       ? "transmitting"
           : phase == Phase::Rx       ? "receiving"
+          : phase == Phase::Cad      ? "channel-check"
           : phase == Phase::Recovery ? "recovery"
                                      : "starting",
           23);
@@ -253,7 +281,22 @@ void radioTask(void *) {
     if (initialized && (irq || digitalRead(board::dio1) == HIGH)) {
       irq = false;
       uint32_t flags = radio.getIrqFlags();
-      if (phase == Phase::Tx && (flags & RADIOLIB_SX126X_IRQ_TX_DONE)) {
+      if (phase == Phase::Cad &&
+          (flags & (RADIOLIB_SX126X_IRQ_CAD_DONE | RADIOLIB_SX126X_IRQ_CAD_DETECTED))) {
+        const int16_t scan = radio.getChannelScanResult();
+        if (scan == RADIOLIB_CHANNEL_FREE) {
+          ++gateway.cadClear;
+          transmitFlight(now);
+        } else if (scan == RADIOLIB_LORA_DETECTED) {
+          ++gateway.cadBusy; // Measured RF activity, not a driver/CAD error.
+          gateway.deferChannelBusy(flight, now, esp_random());
+          rx(); // resume reception while the low-priority POLL backs off
+        } else {
+          ++gateway.cadErrors;
+          gateway.deferChannelBusy(flight, now, esp_random());
+          failure(scan);
+        }
+      } else if (phase == Phase::Tx && (flags & RADIOLIB_SX126X_IRQ_TX_DONE)) {
         int16_t r = radio.finishTransmit();
         gateway.transmitted(flight, r == 0, now, txAir);
         if (r)
@@ -278,9 +321,19 @@ void radioTask(void *) {
       } else {
         if (flags & RADIOLIB_SX126X_IRQ_CRC_ERR)
           crcErrors++;
+        if (phase == Phase::Cad) {
+          ++gateway.cadErrors;
+          gateway.deferChannelBusy(flight, now, esp_random());
+        }
         if (phase != Phase::Tx)
           rx();
       }
+    }
+    if (phase == Phase::Cad && uint64_t(now - cadStart) > CadTimeoutMs) {
+      ++gateway.cadErrors;
+      radio.standby();
+      gateway.deferChannelBusy(flight, now, esp_random());
+      failure(RADIOLIB_ERR_SPI_CMD_TIMEOUT);
     }
     if (phase == Phase::Tx && RadioLifecycle::txExpired(now, txStart, txAir)) {
       radio.standby();
@@ -289,21 +342,23 @@ void radioTask(void *) {
     }
     gateway.tick(now);
     if (phase == Phase::Rx && gateway.nextTx(now, flight)) {
-      size_t n = encode(flight.frame, gateway.config.nodes[flight.node].key, wire);
-      if (!n) {
-        gateway.transmitted(flight, false, now, 1);
-      } else {
-        txAir = uint32_t((radio.getTimeOnAir(n) + 999) / 1000);
-        if (!txAir)
-          txAir = 1;
-        int16_t r = radio.startTransmit(wire, n);
-        txStart = now;
-        if (!r)
-          phase = Phase::Tx;
-        else {
-          gateway.transmitted(flight, false, now, txAir);
-          failure(r);
+      if (requiresChannelCheck(flight.frame.type)) {
+        // Nonblocking SX1262 CAD; keep the radio owner responsive. A busy
+        // channel requeues the same durable POLL sequence after random backoff.
+        irq = false;
+        int16_t cad = radio.startChannelScan();
+        if (!cad) {
+          phase = Phase::Cad;
+          cadStart = now;
+        } else {
+          ++gateway.cadErrors;
+          gateway.deferChannelBusy(flight, now, esp_random());
+          failure(cad);
         }
+      } else {
+        // ACK is latency-sensitive and bypasses CAD, but still obeys the
+        // shared airtime pacing and FIFO/priority scheduler.
+        transmitFlight(now);
       }
     }
     if (ready && now - lastView >= 500) {

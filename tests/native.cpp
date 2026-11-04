@@ -491,6 +491,98 @@ void retainedLastValidReading() {
   CHECK(g.nodes[0].hasLastValid && g.nodes[0].lastValid.kwh == 123.456);
   CHECK(g.nodes[0].lastValidReceived == 1000);
 }
+void fourNodePtmp() {
+  Config c = config();
+  Node &fourth = c.nodes[3];
+  fourth.occupied = fourth.enabled = true;
+  fourth.network = 1;
+  fourth.id = 5; // gateway ID 1; installed node IDs 2,3,4,5
+  fourth.revision = 1;
+  strcpy(fourth.name, "Fourth meter node");
+  for (unsigned k = 0; k < 32; k++)
+    fourth.key[k] = uint8_t(k + 173);
+  CHECK(validConfig(c));
+
+  IO io;
+  Gateway g(io);
+  g.configure(c);
+  uint64_t now = 3000;
+  for (unsigned i = 0; i < 4; ++i) {
+    now = establish(g, io, i, 9000 + i, now, 100 + i);
+    CHECK(g.nodes[i].current.nonce == 9000 + i);
+    CHECK(g.nodes[i].hasLastValid);
+    CHECK(g.nodes[i].lastValid.kwh == 123.456);
+  }
+  // Four autonomous uplinks must remain separately attributed and all ACKs
+  // must go through the same priority queue / shared airtime gate.
+  for (unsigned i = 0; i < 4; ++i) {
+    Frame live = frame(c, i, Telemetry, 3, 9000 + i);
+    CHECK(receive(g, live, i, now) == Reject::None);
+    CHECK(g.nodes[i].lastSequence == 3);
+    CHECK(g.nodes[i].lastType == Telemetry);
+  }
+  CHECK(g.scheduler.depth == 4);
+  now = std::max(now, g.scheduler.nextTx);
+  for (unsigned i = 0; i < 4; ++i) {
+    TxJob j;
+    CHECK(g.nextTx(now, j));
+    CHECK(j.frame.type == Ack);
+    CHECK(j.frame.destination >= 2 && j.frame.destination <= 5);
+    g.transmitted(j, true, now, 88);
+    now = g.scheduler.nextTx;
+  }
+  CHECK(g.scheduler.depth == 0);
+  // Application POLLs to two nodes can be queued independently. The single
+  // radio owner still sends at most one on-air frame at any instant.
+  CHECK(g.poll(0, 0, 0, now));
+  CHECK(g.poll(3, 0, 0, now));
+  CHECK(io.reservations.size() >= 2);
+  auto first = io.reservations[io.reservations.size() - 2];
+  auto last = io.reservations.back();
+  CHECK(first.index == 0 && last.index == 3);
+  g.sequenceReady(0, first.token, true, 201, now);
+  g.sequenceReady(3, last.token, true, 202, now);
+  CHECK(g.scheduler.depth == 2);
+}
+void channelAccess() {
+  CHECK(!requiresChannelCheck(Ack));
+  CHECK(requiresChannelCheck(Poll));
+  CHECK(!requiresChannelCheck(Telemetry));
+  CHECK(channelBackoffMs(0, 0) == 300);
+  CHECK(channelBackoffMs(0, 4) == 300);
+  CHECK(channelBackoffMs(12000, 9) == 300);
+  CHECK(channelBackoffMs(11999, 9) == 12299);
+  CHECK(channelBackoffMs(0xffffffff, 100) <= CadBaseDelayMs + CadMaxWindowMs);
+
+  IO io;
+  Gateway g(io);
+  g.configure(config());
+  g.nodes[0].current.nonce = 2026;
+  CHECK(g.poll(0, 0, 0, 1000));
+  CHECK(io.reservations.size() == 1);
+  auto r = io.reservations.back();
+  g.sequenceReady(0, r.token, true, 19, 1100);
+  TxJob j;
+  CHECK(!g.nextTx(1599, j));
+  CHECK(g.nextTx(1600, j) && j.frame.type == Poll);
+  CHECK(j.frame.sequence == 19 && j.frame.session == 2026);
+  uint32_t delay = channelBackoffMs(42, 1);
+  CHECK(g.deferChannelBusy(j, 1600, 42));
+  CHECK(g.cadBusy == 0 && g.cadDeferred == 1);
+  CHECK(!g.nextTx(1600 + delay - 1, j));
+  CHECK(g.nextTx(1600 + delay, j));
+  CHECK(j.frame.sequence == 19 && j.cadDeferrals == 1);
+  CHECK(g.deferChannelBusy(j, 1600 + delay, 31));
+  CHECK(g.cadBusy == 0 && g.cadDeferred == 2);
+  uint64_t again = 1600 + delay + channelBackoffMs(31, 2);
+  CHECK(g.nextTx(again, j));
+  CHECK(j.frame.sequence == 19 && j.cadDeferrals == 2);
+  // A completed queued POLL is not allowed to transmit after its request
+  // has been retired. This remains true even if the radio is available.
+  CHECK(g.deferChannelBusy(j, again, 78));
+  g.nodes[0].pending.state = RequestState::Unavailable;
+  CHECK(!g.nextTx(again + channelBackoffMs(78, 3), j));
+}
 void automaticRefresh() {
   RefreshPolicy policy;
   CHECK(!policy.due(0, 1000 + RefreshIntervalMs, 1000, true));
@@ -534,6 +626,36 @@ void automaticRefresh() {
   // Configuration changes reset only the volatile refresh policy.
   g.configure(config());
   CHECK(g.automaticPolls == 0 && g.automaticPollErrors == 0);
+}
+void ackQueueReserve() {
+  Scheduler s;
+  auto c = config();
+  TxJob j;
+  j.node = 0;
+  j.frame = frame(c, 0, Poll, 1, 1200);
+  j.frame.length = 5;
+  j.ready = 0;
+  j.expires = 200000;
+  // Even if user traffic surges, background/manual POLLs may not consume
+  // the slots reserved for acknowledgements.
+  for (size_t i = 0; i < TxCapacity - TxAckReserve; ++i) {
+    j.frame.sequence = uint32_t(i + 1);
+    CHECK(s.enqueue(j));
+  }
+  CHECK(s.depth == TxCapacity - TxAckReserve);
+  CHECK(!s.enqueue(j));
+  CHECK(s.drops == 1);
+  for (size_t i = 0; i < TxAckReserve; ++i) {
+    j.frame = acknowledge(frame(c, 0, Telemetry, uint32_t(i + 100), 1200));
+    CHECK(s.enqueue(j));
+  }
+  CHECK(s.depth == TxCapacity);
+  j.frame = acknowledge(frame(c, 0, Telemetry, 250, 1200));
+  CHECK(!s.enqueue(j));
+  CHECK(s.drops == 2);
+  TxJob first;
+  CHECK(s.pop(0, first) && first.frame.type == Ack);
+  CHECK(s.depth == TxCapacity - 1);
 }
 void scheduler() {
   Scheduler s;
@@ -631,7 +753,10 @@ int main(int argc, char **argv) {
   reassembly();
   sessions();
   scheduler();
+  ackQueueReserve();
   automaticRefresh();
+  channelAccess();
+  fourNodePtmp();
   retainedLastValidReading();
   std::cout << "PASS " << checks << " production-core regression assertions\n";
 }

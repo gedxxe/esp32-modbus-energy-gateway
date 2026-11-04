@@ -18,6 +18,10 @@ bool Scheduler::enqueue(const TxJob &job) {
         coalesced++;
         return true;
       }
+  if (job.frame.type != Ack && depth >= TxCapacity - TxAckReserve) {
+    ++drops;
+    return false; // Never allow background POLLs to occupy the ACK reserve.
+  }
   for (auto &x : jobs)
     if (!x.used) {
       x = job;

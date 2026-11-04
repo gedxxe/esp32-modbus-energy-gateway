@@ -18,3 +18,7 @@
 No node_modules, `.pio`, toolchain archives, reference cache, production credentials or development Python tools are included in the release source package. `firmware/web/assets.h` is a generated, local compressed asset; it embeds React's retained notices and no test fixture. A production firmware build does not serve `dashboard/preview.mjs` or test data.
 
 The CI workflow provides current build and native-test evidence. Compiled release files are generated artifacts and are intentionally excluded from Git; do not treat an old release manifest as evidence for a newer source commit. Runtime heap/stack watermarks, flash power-fail behavior and RF performance need the hardware acceptance procedure.
+
+## Release hygiene (gateway ESP32-C3)
+
+The gateway release generator now packages tracked source and verified flash images, including VS Code project settings and the PlatformIO root configuration. It excludes `.elf` debugger output, which can contain build-machine paths, and reports actual SHA256 hashes instead of old hardcoded software test counts. The pinned upstream node package contract is documented in `docs/upstream-package-lock.json`. CI rechecks this record, source and wiring diagrams, native tests, React bundle parity, ESP32-C3 firmware build, filesystem size and flash partitions. Packaging does not flash or modify any hardware.
