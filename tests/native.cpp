@@ -521,8 +521,8 @@ void automaticRefresh() {
   CHECK(io.reservations[0].index == 0);
   CHECK(g.automaticPolls == 1 && g.automaticPollErrors == 0);
   CHECK(g.nodes[0].pending.state == RequestState::Reserving);
-  // No second request while a first one is awaiting flash reservation or RF.
-  g.tick(due + RefreshSpacingMs);
+  // The flash-reservation deadline is 30 s; test inside that active window.
+  g.tick(due + 29999);
   CHECK(io.reservations.size() == 1);
   g.nodes[0].pending.state = RequestState::Idle;
   // Fresh unsolicited telemetry postpones an automatic request to that node.
