@@ -34,3 +34,4 @@ test-results/
 
 # Read-only peer checkout used by the cross-repository interop test
 .peer/
+.peer-ptmp/

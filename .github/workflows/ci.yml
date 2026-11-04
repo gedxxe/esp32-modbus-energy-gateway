@@ -26,6 +26,13 @@ jobs:
           ref: 737cfff590c0cbea33895df17c3e3ffc06449e15
           path: .peer
           persist-credentials: false
+      - name: Check out companion PTMP node revision (read-only)
+        uses: actions/checkout@v4
+        with:
+          repository: gedxxe/esp32-modbus-energy
+          ref: 97d2749bf54d76ebbfefa2c286dcb0124a29beac
+          path: .peer-ptmp
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -44,6 +51,10 @@ jobs:
         run: python tools/check_layout.py
       - name: Compile actual node and gateway wire contract together
         run: python tools/test_peer_wire.py .peer
+      - name: Verify companion node package compatibility
+        run: python tools/check_compatibility.py --node-platformio .peer-ptmp/firmware/platformio.ini
+      - name: Compile production LoRa codec against companion node revision
+        run: python tools/test_peer_wire.py .peer-ptmp
       - name: Native radio, scheduler and persistence regression
         run: python tools/test_native.py
       - name: Build offline dashboard and run DOM tests
