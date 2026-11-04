@@ -87,3 +87,7 @@ Read diagnostics in order: initialization/SPI → RF observations → authentica
 | Gateway reboot / node reboot | Sequence reserve continuity, new-session proof | AWAITING_HARDWARE |
 | Absent module / BUSY / brownout | Driver recovery + AP responsiveness, flash recovery | AWAITING_HARDWARE |
 | Capacity and range | Actual intervals/PHY/load, location/antenna, loss statistics | AWAITING_HARDWARE |
+
+## PlatformIO validation / safe release package
+
+Open the repository **root** in VS Code with PlatformIO IDE and select the environment `esp32c3` (board ID `esp32-c3-devkitm-1`). The node project uses `esp32-s3-devkitc-1`; they share the same pinned platform URL, RadioLib and ArduinoJson, not a binary image. Check `docs/PLATFORMIO_VSCODE.md` for VS Code setup and `docs/COLLISION_CONTROL.md` for gateway CAD and half-duplex limitations. `python tools/check_compatibility.py` and `python tools/check_wiring.py` are preflight checks. Once firmware is built, `python -m platformio run -e esp32c3 -t buildfs` makes a *local* blank filesystem image, and `python tools/check_flash_layout.py` checks partition offsets; neither action uploads data to a connected device. `python tools/package.py` creates a source + image ZIP **without ELF**, and `--verify` checks its hashes. Do not use the included `littlefs.bin` during a routine update because it overwrites checkpoint archives.

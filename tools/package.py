@@ -1,52 +1,124 @@
-"""Package verified build outputs without caches/dependencies/secrets. Run after tests/builds."""
+"""Build a release from the exact tracked source and compiled ESP32-C3 images.
+
+ELF/debug symbols are deliberately excluded: they may contain absolute paths
+from the machine that built them. The packaged LittleFS image is for INITIAL
+provisioning ONLY; flashing it on an active gateway replaces stored archives.
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import hashlib
+import json
+import os
 from pathlib import Path
-import hashlib,json,shutil,struct,sys,zipfile
-root=Path(__file__).resolve().parent.parent
-release=root/'release'; release.mkdir(exist_ok=True)
-manifestPath=release/'manifest.json'
-ReleaseVersion='0.1.1'
-def digest(p): return hashlib.sha256(p.read_bytes()).hexdigest()
-if '--verify' in sys.argv:
-    m=json.loads(manifestPath.read_text())
-    for entry in m['artifacts']:
-        p=root/entry['path']
-        assert p.stat().st_size==entry['bytes'] and digest(p)==entry['sha256'],p
-    for entry in m['source']:
-        assert digest(root/entry['path'])==entry['sha256'],entry['path']
-    with zipfile.ZipFile(release/f"energy-station-gateway-c3-{m['release']}.zip") as z:
+import struct
+import subprocess
+import zipfile
+
+ROOT = Path(__file__).resolve().parent.parent
+BUILD = ROOT / ".pio/build/esp32c3"
+RELEASE = ROOT / "release"
+VERSION = "0.2.0-rc1"
+ARCHIVE = RELEASE / f"midea-engineering-gateway-c3-{VERSION}.zip"
+MANIFEST = RELEASE / "manifest.json"
+BINARIES = (
+    ("bootloader.bin", "0x0"),
+    ("partitions.bin", "0x8000"),
+    ("firmware.bin", "0x20000"),
+    ("littlefs.bin", "0x220000"),
+)
+
+def digest(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+def path_string(p: Path) -> str:
+    return str(p.relative_to(ROOT)).replace("\\", "/")
+
+def git(*args: str) -> str:
+    return subprocess.check_output(["git", *args], cwd=ROOT).decode().strip()
+
+def tracked_sources() -> list[Path]:
+    # Version-controlled sources, docs, diagrams and .vscode settings only.
+    tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT)
+    return sorted(ROOT / p.decode("utf-8") for p in tracked.split(b"\0")
+                  if p and not p.decode("utf-8").startswith("release/"))
+
+def metadata(source: list[Path]) -> dict:
+    lock = json.loads((ROOT / "docs/upstream-package-lock.json").read_text())
+    return {
+        "release": VERSION,
+        "generated_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "source_commit": git("rev-parse", "HEAD"),
+        "node_reference_commit": lock["upstream_commit"],
+        "node_modified": False,
+        "target": lock["gateway_board"],
+        "framework": lock["framework"],
+        "platform": lock["platform"],
+        "libraries": lock["shared_libraries"],
+        "protocol": lock["contract"],
+        "flash_bytes": 4194304,
+        "hardware_tested": False,
+        "deployment": "UNTESTED: bench and four-node PTMP validation required",
+        "safety": "Do not upload littlefs.bin on an installed gateway; archives are overwritten. Preserve gw_nvs at 0xE000.",
+        "artifacts": [],
+        "source": [{"path": path_string(p), "sha256": digest(p.read_bytes())} for p in source],
+    }
+
+def verify() -> None:
+    obj = json.loads(MANIFEST.read_text())
+    with zipfile.ZipFile(ARCHIVE) as z:
         assert z.testzip() is None
-        for entry in m['source']+m['artifacts']:
-            assert hashlib.sha256(z.read(entry['path'])).hexdigest()==entry['sha256'],entry['path']
-        assert z.read('release/manifest.json')==manifestPath.read_bytes()
-    print(f"PASS: {len(m['artifacts'])} artifact hashes and {len(m['source'])} source hashes verified")
-    raise SystemExit()
-artifacts=[]
-for filename,offset in [('bootloader.bin','0x0'),('partitions.bin','0x8000'),('firmware.bin','0x20000'),('littlefs.bin','0x220000'),('firmware.elf',None)]:
-    p=root/'.pio/build/esp32c3'/filename
-    if not p.exists():raise SystemExit(f'Missing build output: {p}')
-    target=release/filename;shutil.copyfile(p,target)
-    if filename.endswith('.bin') and filename not in ['partitions.bin','littlefs.bin']:
-        data=target.read_bytes();assert data[0]==0xe9 and struct.unpack_from('<H',data,12)[0]==5,'Expected ESP32-C3 image'
-    if filename.endswith('.elf'):
-        data=target.read_bytes();assert data[:4]==b'\x7fELF' and struct.unpack_from('<H',data,18)[0]==243,'Expected RISC-V ELF'
-    artifacts.append({'path':str(target.relative_to(root)).replace('\\','/'),'bytes':target.stat().st_size,'sha256':digest(target),'flash_offset':offset})
-allowed=['AGENTS.md','WORK_STATUS.md','README.md','README.id.md','LICENSE','NOTICE','.gitignore','.gitattributes','.clang-format','platformio.ini','partitions.csv']
-files=[root/p for p in allowed]
-for folder in ['firmware','docs','tests','licenses','data']:
-    files.extend(p for p in (root/folder).rglob('*') if p.is_file())
-for p in (root/'dashboard').rglob('*'):
-    if p.is_file() and not any(x in p.parts for x in ['node_modules','dist']):files.append(p)
-for filename in ['test_native.py','check_lora.py','package.py','format_source.py','pio_flash_guard.py','check_flash_layout.py']:
-    files.append(root/'tools'/filename)
-files=sorted(set(files))
-source=[{'path':str(p.relative_to(root)).replace('\\','/'),'sha256':digest(p)} for p in files]
-manifest={'release':ReleaseVersion,'date':'2026-11-04','target':'esp32-c3-devkitm-1','flash_bytes':4194304,'protocol':'Energy Station v1','node_commit':'26c3a9429c8c4d410ef11a1b81e1e42f295034b1','framework':'Arduino-ESP32 3.3.11 / ESP-IDF 5.5.5','platform':'pioarduino 55.03.311','radiolib':'7.8.1','hardware_tested':False,'artifacts':artifacts,'source':source,'provisioning':'Preserve gw_nvs and archives on updates. littlefs.bin replaces archives and is first-provisioning only.'}
-manifest['flash_layout']=json.loads((root/'.pio/build/esp32c3/flash-layout.json').read_text(encoding='utf-8'))
-manifest['verification']={'production_core_assertions':580,'independent_hmac_cases':115,'dashboard_tests':9,'built_dashboard_tests':7,'inventory_helper_tests':2,'static_ram_bytes':94568,'program_flash_bytes':1227511,'app_partition_capacity':2097152,'dashboard_gzip_bytes':60825,'hardware':'AWAITING_HARDWARE'}
-manifestPath.write_text(json.dumps(manifest,indent=2)+'\n')
-archive=release/f'energy-station-gateway-c3-{ReleaseVersion}.zip'
-with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as z:
-    for p in files+[release/a['path'].split('/')[-1] for a in artifacts]+[manifestPath]:
-        info=zipfile.ZipInfo(str(p.relative_to(root)).replace('\\','/'),(2026,11,4,0,0,0));info.compress_type=zipfile.ZIP_DEFLATED;z.writestr(info,p.read_bytes())
-print(f'Packaged {len(files)} source files + {len(artifacts)} build artifacts; zip SHA256 {digest(archive)}')
-(release/'SHA256SUMS.txt').write_text(''.join(f'{digest(p)}  {p.name}\n' for p in [archive,manifestPath,*[release/a['path'].split('/')[-1] for a in artifacts]]),encoding='utf-8')
+        for row in obj["source"] + obj["artifacts"]:
+            path = ROOT / row["path"]
+            data = path.read_bytes()
+            assert digest(data) == row["sha256"], path
+            if "bytes" in row:
+                assert len(data) == row["bytes"], path
+            assert digest(z.read(row["path"])) == row["sha256"], row["path"]
+        assert z.read("release/manifest.json") == MANIFEST.read_bytes()
+        assert not any(name.endswith((".elf", ".map", ".pem", ".key")) for name in z.namelist())
+    print(f"PASS: {len(obj['source'])} tracked sources and {len(obj['artifacts'])} C3 flash-image hashes")
+
+def create() -> None:
+    RELEASE.mkdir(exist_ok=True)
+    src = tracked_sources()
+    obj = metadata(src)
+    for name, offset in BINARIES:
+        p = BUILD / name
+        if not p.is_file():
+            raise RuntimeError(f"Missing PlatformIO build artifact {name}; build firmware and buildfs first")
+        data = p.read_bytes()
+        if name in ("bootloader.bin", "firmware.bin"):
+            assert data and data[0] == 0xE9, f"{name} is not an ESP32 image"
+            assert struct.unpack_from("<H", data, 12)[0] == 5, "Expected ESP32-C3 chip ID"
+        if name == "firmware.bin":
+            assert len(data) <= 0x200000, "Application exceeds factory partition"
+        if name == "littlefs.bin":
+            assert len(data) == 0x1E0000, "Incorrect archive filesystem partition size"
+        target = RELEASE / name
+        target.write_bytes(data)
+        obj["artifacts"].append({"path": path_string(target), "bytes": len(data),
+                                 "sha256": digest(data), "flash_offset": offset})
+    MANIFEST.write_text(json.dumps(obj, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    to_pack = src + [RELEASE / n for n, _ in BINARIES] + [MANIFEST]
+    with zipfile.ZipFile(ARCHIVE, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zipped:
+        for p in to_pack:
+            info = zipfile.ZipInfo(path_string(p), (2026, 11, 5, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            zipped.writestr(info, p.read_bytes())
+    (RELEASE / "SHA256SUMS.txt").write_text(
+        "".join(f"{digest(p.read_bytes())}  {p.name}\n"
+                for p in (ARCHIVE, MANIFEST, *[RELEASE / n for n, _ in BINARIES])),
+        encoding="utf-8")
+    verify()
+    print(f"Release generated locally: {ARCHIVE.name}; no ELF or workstation paths in debug symbols")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--verify", action="store_true")
+    opts = parser.parse_args()
+    if opts.verify:
+        verify()
+    else:
+        create()

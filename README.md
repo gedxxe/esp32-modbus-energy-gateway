@@ -37,8 +37,10 @@ The reference hardware is an **ESP32-C3-DevKitM-1 with an SX1262 Ra-01SH V1.1**.
 From the repository root, with Python 3, PlatformIO Core and a C++ compiler available:
 
 ```sh
-python -m platformio run -e esp32c3
+python tools/check_compatibility.py
+python tools/check_wiring.py
 python tools/test_native.py
+python -m platformio run -e esp32c3
 ```
 
 To build the locally bundled dashboard, use Node.js 22 and run `npm ci`, `npm run build` and `npm test` inside `dashboard/`. The build regenerates `firmware/web/assets.h`; build the firmware **after** generating the dashboard. Normal firmware updates should not overwrite a device's archive partition. See [commissioning](docs/COMMISSIONING.md) before flashing or clearing flash.
@@ -48,3 +50,7 @@ To build the locally bundled dashboard, use Node.js 22 and run `npm ci`, `npm ru
 This is a local engineering installation, not an Internet-exposed service. The dashboard uses HTTP on a controlled AP and a temporary commissioning access code. At-rest flash encryption, a trusted gateway RTC, cloud synchronization and a managed multi-user login system are not provided. Host software tests and ESP32 compilation do not prove radio range, collision-free operation or accurate readings on a particular meter. The final acceptance procedure must include a real node, gateway and antenna installed at the intended locations. Repository hygiene checks are in `tools/security_audit.py`; local workstation paths, provisioning keys, compiled ELF files and temporary build output do not belong in Git.
 
 [Source layout](docs/ARCHITECTURE.md) · [Validation](docs/VERIFICATION.md) · [Hardware](docs/HARDWARE.md) · [Licenses](NOTICE)
+
+### Build artifacts and safe release
+
+To produce a checked source-and-flash-image package, build both firmware and the **first-provisioning-only** LittleFS image, then run `python tools/package.py` and `python tools/package.py --verify`. The ZIP intentionally **excludes the ELF debugger file** because it can contain absolute workstation paths. A release manifest is generated from the exact Git revision and actual image bytes, not old test statistics. Normal firmware updates must preserve the `gw_nvs` sequence ledger and the `archives` LittleFS partition; never upload the blank LittleFS image to an operational gateway. CI publishes the packaged ZIP as a downloadable workflow artifact, not as a committed binary. See [PlatformIO/VS Code workflow](docs/PLATFORMIO_VSCODE.md).

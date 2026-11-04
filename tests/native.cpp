@@ -491,6 +491,59 @@ void retainedLastValidReading() {
   CHECK(g.nodes[0].hasLastValid && g.nodes[0].lastValid.kwh == 123.456);
   CHECK(g.nodes[0].lastValidReceived == 1000);
 }
+void fourNodePtmp() {
+  Config c = config();
+  Node &fourth = c.nodes[3];
+  fourth.occupied = fourth.enabled = true;
+  fourth.network = 1;
+  fourth.id = 5; // gateway ID 1; installed node IDs 2,3,4,5
+  fourth.revision = 1;
+  strcpy(fourth.name, "Fourth meter node");
+  for (unsigned k = 0; k < 32; k++)
+    fourth.key[k] = uint8_t(k + 173);
+  CHECK(validConfig(c));
+
+  IO io;
+  Gateway g(io);
+  g.configure(c);
+  uint64_t now = 3000;
+  for (unsigned i = 0; i < 4; ++i) {
+    now = establish(g, io, i, 9000 + i, now, 100 + i);
+    CHECK(g.nodes[i].current.nonce == 9000 + i);
+    CHECK(g.nodes[i].hasLastValid);
+    CHECK(g.nodes[i].lastValid.kwh == 123.456);
+  }
+  // Four autonomous uplinks must remain separately attributed and all ACKs
+  // must go through the same priority queue / shared airtime gate.
+  for (unsigned i = 0; i < 4; ++i) {
+    Frame live = frame(c, i, Telemetry, 3, 9000 + i);
+    CHECK(receive(g, live, i, now) == Reject::None);
+    CHECK(g.nodes[i].lastSequence == 3);
+    CHECK(g.nodes[i].lastType == Telemetry);
+  }
+  CHECK(g.scheduler.depth == 4);
+  now = std::max(now, g.scheduler.nextTx);
+  for (unsigned i = 0; i < 4; ++i) {
+    TxJob j;
+    CHECK(g.nextTx(now, j));
+    CHECK(j.frame.type == Ack);
+    CHECK(j.frame.destination >= 2 && j.frame.destination <= 5);
+    g.transmitted(j, true, now, 88);
+    now = g.scheduler.nextTx;
+  }
+  CHECK(g.scheduler.depth == 0);
+  // Application POLLs to two nodes can be queued independently. The single
+  // radio owner still sends at most one on-air frame at any instant.
+  CHECK(g.poll(0, 0, 0, now));
+  CHECK(g.poll(3, 0, 0, now));
+  CHECK(io.reservations.size() >= 2);
+  auto first = io.reservations[io.reservations.size() - 2];
+  auto last = io.reservations.back();
+  CHECK(first.index == 0 && last.index == 3);
+  g.sequenceReady(0, first.token, true, 201, now);
+  g.sequenceReady(3, last.token, true, 202, now);
+  CHECK(g.scheduler.depth == 2);
+}
 void channelAccess() {
   CHECK(!requiresChannelCheck(Ack));
   CHECK(requiresChannelCheck(Poll));
@@ -672,6 +725,7 @@ int main(int argc, char **argv) {
   scheduler();
   automaticRefresh();
   channelAccess();
+  fourNodePtmp();
   retainedLastValidReading();
   std::cout << "PASS " << checks << " production-core regression assertions\n";
 }

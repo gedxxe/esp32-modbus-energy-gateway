@@ -37,8 +37,10 @@ Acuan awal gateway adalah **ESP32-C3-DevKitM-1** dengan modul **SX1262 Ra-01SH V
 Perintah build dari root repository, menggunakan Python, PlatformIO, dan compiler C++:
 
 ```sh
-python -m platformio run -e esp32c3
+python tools/check_compatibility.py
+python tools/check_wiring.py
 python tools/test_native.py
+python -m platformio run -e esp32c3
 ```
 
 Untuk membangun dashboard lokal, masuk ke direktori `dashboard/`, kemudian jalankan `npm ci`, `npm run build`, dan `npm test` dengan Node.js 22. Aset hasil build dimasukkan ke firmware melalui `firmware/web/assets.h`, sehingga firmware sebaiknya dikompilasi setelah dashboard dibangun. Jangan mengunggah filesystem image baru ke perangkat berisi arsip pengukuran tanpa memeriksa konsekuensi penghapusan datanya.
@@ -46,3 +48,7 @@ Untuk membangun dashboard lokal, masuk ke direktori `dashboard/`, kemudian jalan
 ## Batasan implementasi
 
 Sistem ini dirancang sebagai alat monitoring lokal, bukan layanan yang dibuka langsung ke Internet. Autentikasi dashboard masih menggunakan kode commissioning, komunikasi web masih HTTP, dan gateway belum mempunyai RTC tepercaya ataupun integrasi database pusat. Uji kode dan simulasi paket bisa membuktikan konsistensi logika, tetapi belum menggantikan pengujian LoRa, pembacaan meter asli, serta jangkauan pada lingkungan pabrik. Lihat [panduan commissioning](docs/COMMISSIONING.md), [hasil verifikasi](docs/VERIFICATION.md), dan [aturan kebersihan repository](tools/security_audit.py) sebelum menerapkan build baru.
+
+### Paket firmware dan keamanan flash
+
+Setelah build firmware dan image LittleFS khusus instalasi awal, jalankan `python tools/package.py` lalu `python tools/package.py --verify` untuk membuat paket ZIP yang diverifikasi menggunakan SHA256. File ELF tidak disertakan dalam paket publik karena berpotensi memuat path folder dari komputer yang mengompilasi firmware. Image `littlefs.bin` **hanya untuk provisioning pertama**, bukan update rutin. Jangan sampai update firmware menghapus partisi `gw_nvs` yang menyimpan ledger sequence LoRa atau partisi `archives` yang menyimpan checkpoint. ZIP hasil CI tersedia sebagai workflow artifact dan tidak dimasukkan ke commit repository.
