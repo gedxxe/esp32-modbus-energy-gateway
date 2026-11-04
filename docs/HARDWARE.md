@@ -21,7 +21,9 @@ GPIO labels below are **not header pin ordinals**. This reference must be checke
 | Common GND | 2, 9, 16 | GND | Connect all ground pads |
 | Matched antenna | 1 / fitted IPEX | ANT | 50-ohm RF connection |
 
-![Logical reference wiring](assets/wiring-c3.svg)
+![ESP32-C3 wiring with explicit radio pad and GPIO references](assets/wiring-c3.svg)
+
+The exported visual netlist and CSV are checked by `python tools/check_wiring.py` in CI; the radio adapter values in `firmware/board/reference.h` are the compile-time source of truth. The diagram does not identify your particular clone's physical header-pin order.
 
 Machine-readable companion: [wiring-c3.csv](wiring-c3.csv). Drawing is a logical net diagram, not the physical module orientation. Use the manual's pad diagram for assembly. Radio SPI is 2 MHz mode 0.
 

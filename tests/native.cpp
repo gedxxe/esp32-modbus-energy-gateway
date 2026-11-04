@@ -491,6 +491,45 @@ void retainedLastValidReading() {
   CHECK(g.nodes[0].hasLastValid && g.nodes[0].lastValid.kwh == 123.456);
   CHECK(g.nodes[0].lastValidReceived == 1000);
 }
+void channelAccess() {
+  CHECK(!requiresChannelCheck(Ack));
+  CHECK(requiresChannelCheck(Poll));
+  CHECK(!requiresChannelCheck(Telemetry));
+  CHECK(channelBackoffMs(0, 0) == 300);
+  CHECK(channelBackoffMs(0, 4) == 300);
+  CHECK(channelBackoffMs(12000, 9) == 300);
+  CHECK(channelBackoffMs(11999, 9) == 12299);
+  CHECK(channelBackoffMs(0xffffffff, 100) <= CadBaseDelayMs + CadMaxWindowMs);
+
+  IO io;
+  Gateway g(io);
+  g.configure(config());
+  g.nodes[0].current.nonce = 2026;
+  CHECK(g.poll(0, 0, 0, 1000));
+  CHECK(io.reservations.size() == 1);
+  auto r = io.reservations.back();
+  g.sequenceReady(0, r.token, true, 19, 1100);
+  TxJob j;
+  CHECK(!g.nextTx(1599, j));
+  CHECK(g.nextTx(1600, j) && j.frame.type == Poll);
+  CHECK(j.frame.sequence == 19 && j.frame.session == 2026);
+  uint32_t delay = channelBackoffMs(42, 1);
+  CHECK(g.deferChannelBusy(j, 1600, 42));
+  CHECK(g.cadBusy == 1 && g.cadDeferred == 1);
+  CHECK(!g.nextTx(1600 + delay - 1, j));
+  CHECK(g.nextTx(1600 + delay, j));
+  CHECK(j.frame.sequence == 19 && j.cadDeferrals == 1);
+  CHECK(g.deferChannelBusy(j, 1600 + delay, 31));
+  CHECK(g.cadBusy == 2 && g.cadDeferred == 2);
+  uint64_t again = 1600 + delay + channelBackoffMs(31, 2);
+  CHECK(g.nextTx(again, j));
+  CHECK(j.frame.sequence == 19 && j.cadDeferrals == 2);
+  // A completed queued POLL is not allowed to transmit after its request
+  // has been retired. This remains true even if the radio is available.
+  CHECK(g.deferChannelBusy(j, again, 78));
+  g.nodes[0].pending.state = RequestState::Unavailable;
+  CHECK(!g.nextTx(again + channelBackoffMs(78, 3), j));
+}
 void automaticRefresh() {
   RefreshPolicy policy;
   CHECK(!policy.due(0, 1000 + RefreshIntervalMs, 1000, true));
@@ -632,6 +671,7 @@ int main(int argc, char **argv) {
   sessions();
   scheduler();
   automaticRefresh();
+  channelAccess();
   retainedLastValidReading();
   std::cout << "PASS " << checks << " production-core regression assertions\n";
 }

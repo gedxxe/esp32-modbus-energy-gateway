@@ -5,6 +5,7 @@
 #include "checkpoint.h"
 #include "scheduler.h"
 #include "refresh_policy.h"
+#include "channel_access.h"
 namespace gw {
 constexpr size_t ReplayWindow = 16;
 struct Replay {
@@ -82,6 +83,7 @@ public:
   Scheduler scheduler{};
   RefreshPolicy refreshPolicy{};
   uint32_t automaticPolls = 0, automaticPollErrors = 0;
+  uint32_t cadBusy = 0, cadClear = 0, cadErrors = 0, cadDeferred = 0;
   Assembly assembly{};
   explicit Gateway(GatewayIO &port) : io(port) {}
   void configure(const Config &c);
@@ -89,6 +91,7 @@ public:
   bool poll(uint8_t i, uint8_t mode, uint32_t day, uint64_t now);
   void sequenceReady(uint8_t i, uint32_t requestToken, bool ok, uint32_t sequence, uint64_t now);
   bool nextTx(uint64_t now, TxJob &job);
+  bool deferChannelBusy(const TxJob &job, uint64_t now, uint32_t entropy);
   void transmitted(const TxJob &job, bool ok, uint64_t now, uint32_t actualAirMs);
   void durable(uint8_t i, uint64_t session, uint32_t corr, bool ok);
   void tick(uint64_t now);

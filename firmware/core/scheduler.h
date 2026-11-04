@@ -11,6 +11,7 @@ struct TxJob {
   Frame frame{};
   uint64_t expires = 0, ready = 0;
   uint32_t revision = 0;
+  uint8_t cadDeferrals = 0;
 };
 class Scheduler {
   TxJob jobs[TxCapacity]{};
