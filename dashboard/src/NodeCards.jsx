@@ -168,7 +168,9 @@ function ReceivedData({ node: n, w }) {
 }
 function NodeCard({ node: n, w, edit, command, busy, requestCheckpoint }) {
   const isFresh = Boolean(n.enabled && fresh(n));
-  const hasReading = Boolean(n.hasLive && (n.live.flags & 1) && Number.isFinite(n.live.kwh));
+  const latestReading = n.hasLastValid && n.lastValid ? n.lastValid : n.live;
+  const hasReading = Boolean((n.hasLastValid || (n.hasLive && (n.live.flags & 1))) && Number.isFinite(latestReading?.kwh));
+  const readingAge = n.hasLastValid ? n.lastValidAge : n.receiveAge;
   const requestPending = ["reserving", "queued", "waiting", "validated"].includes(n.request);
   const status = !n.enabled
     ? w.disabled
@@ -204,10 +206,10 @@ function NodeCard({ node: n, w, edit, command, busy, requestCheckpoint }) {
       <div className="node-energy">
         <span>{w.now}</span>
         <b className="energy">
-          {hasReading ? energy(n.live.kwh) : "—"} <small>kWh</small>
+          {hasReading ? energy(latestReading.kwh) : "—"} <small>kWh</small>
         </b>
         <small>
-          {w.receive}: {n.hasLive ? age(n.receiveAge) : "—"} · {w.sample}:{" "}
+          {w.receive}: {hasReading ? age(readingAge) : "—"} · {w.sample}:{" "}
           {n.hasLive ? age(n.live.sampleAge) : "—"}
         </small>
         {hasReading && !isFresh && <p className="reading-note">{w.sampleStale}</p>}

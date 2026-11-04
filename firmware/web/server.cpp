@@ -163,6 +163,8 @@ esp_err_t status(httpd_req_t *req) {
       o["candidate"] = nullptr;
     o["helloAcked"] = n.helloAcked;
     o["hasLive"] = n.hasLive;
+    o["hasLastValid"] = n.hasLastValid;
+    o["lastValidAge"] = n.hasLastValid ? view.uptime - n.lastValidReceived : 0;
     o["receiveAge"] = n.hasLive ? view.uptime - n.received : 0;
     o["request"] = requestName(n.request);
     o["correlation"] = n.correlation;
@@ -185,6 +187,13 @@ esp_err_t status(httpd_req_t *req) {
     l["revision"] = n.live.revision;
     l["profile"] = n.live.profile;
     l["meterId"] = n.live.meterId;
+    JsonObject last = o["lastValid"].to<JsonObject>();
+    if (n.hasLastValid && std::isfinite(n.lastValid.kwh)) last["kwh"] = n.lastValid.kwh;
+    else last["kwh"] = nullptr;
+    last["utc"] = n.hasLastValid ? n.lastValid.utc : 0;
+    last["profile"] = n.hasLastValid ? n.lastValid.profile : 0;
+    last["meterId"] = n.hasLastValid ? n.lastValid.meterId : 0;
+    last["sampleAge"] = n.hasLastValid ? n.lastValid.sampleAge : 0;
     if (n.hasLive && (n.live.flags & 1) && std::isfinite(n.live.kwh))
       l["kwh"] = n.live.kwh;
     else

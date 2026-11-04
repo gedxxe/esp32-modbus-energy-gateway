@@ -6,6 +6,7 @@ import { NodeForm } from "./Nodes.jsx";
 import { NodeGrid, CheckpointForm, nodeWords } from "./NodeCards.jsx";
 import { newNodeDraft } from "./inventory.js";
 import { RadioForm } from "./RadioForm.jsx";
+import { MideaBrand } from "./MideaBrand.jsx";
 
 const copy = {
   en: {
@@ -15,7 +16,7 @@ const copy = {
     diagnostics: "Diagnostics",
     archives: "Checkpoints",
     commissioning: "LOCAL COMMISSIONING",
-    subtitle: "A clear view of every LoRa connection.",
+    subtitle: "Monitor the latest valid power-meter readings, inspect radio connectivity and request a new sample from an individual node when needed. Telemetry arrives over authenticated LoRa; the displayed value is not always a real-time reading.",
     add: "Add node",
     live: "Request live",
     checkpoint: "Request checkpoint",
@@ -27,7 +28,7 @@ const copy = {
     connect: "Open gateway",
     code: "Commissioning access code",
     intro:
-      "Connect to the gateway AP. Find the access code in Serial Monitor OUTPUT at 115200 baud.",
+      "Connect your device to the gateway access point, then enter the commissioning code printed on the Serial Monitor at 115200 baud. This local dashboard does not require internet access.",
     disabled: "Radio disabled",
     nodes: "Registered nodes",
     confirmed: "Confirmed sessions",
@@ -45,7 +46,7 @@ const copy = {
     diagnostics: "Diagnostik",
     archives: "Checkpoint",
     commissioning: "COMMISSIONING LOKAL",
-    subtitle: "Pantau setiap koneksi LoRa dengan jelas.",
+    subtitle: "Pantau pembacaan power meter terakhir, kondisi komunikasi radio, dan minta sampel baru dari masing-masing node ketika diperlukan. Data dikirim melalui LoRa yang terautentikasi; angka terakhir tidak selalu merupakan hasil ukur real-time.",
     add: "Tambah node",
     live: "Minta live",
     checkpoint: "Minta checkpoint",
@@ -57,7 +58,7 @@ const copy = {
     connect: "Buka gateway",
     code: "Kode akses commissioning",
     intro:
-      "Sambungkan ke AP gateway. Kode akses tercetak pada Serial Monitor OUTPUT, baud 115200.",
+      "Hubungkan perangkat ke access point gateway, kemudian masukkan kode commissioning yang tampil di Serial Monitor pada 115200 baud. Dashboard lokal ini tidak membutuhkan akses internet.",
     disabled: "Radio nonaktif",
     nodes: "Node terdaftar",
     confirmed: "Sesi terkonfirmasi",
@@ -83,7 +84,7 @@ function App() {
     [checkpointNode, setCheckpointNode] = useState(null),
     [busy, setBusy] = useState(false),
     [archives, setArchives] = useState([]),
-    [interval, setIntervalValue] = useState(60);
+    [interval, setIntervalValue] = useState(3600);
   const t = copy[lang],
     pending = useRef(new Set());
   function addNode() {
@@ -179,21 +180,10 @@ function App() {
   if (!token)
     return (
       <main className="login">
-        <div className="login-brand">
-          <div className="mark">
-            <Icon name="signal" size={28} />
-          </div>
-          <span>
-            ENERGY STATION<span className="muted"> / GATEWAY</span>
-          </span>
-        </div>
+        <div className="login-brand"><MideaBrand /></div>
         <form onSubmit={login}>
           <span className="eyebrow">{t.commissioning} · ESP32-C3</span>
-          <h1>
-            Connected.
-            <br />
-            <em>Clearly.</em>
-          </h1>
+          <h1>{lang === "id" ? "Monitoring daya melalui LoRa" : "LoRa power monitoring"}</h1>
           <p>{t.intro}</p>
           <Field label={t.code}>
             <input
@@ -213,10 +203,10 @@ function App() {
           <button className="primary">
             {t.connect} <span>↗</span>
           </button>
-          <small>Energy Station v1 · Raw LoRa PTMP · Local assets</small>
+          <small>ESP32-C3 · SX1262 · Energy Station protocol v1</small>
         </form>
         <div className="login-footer">
-          <span>Built for the panel room.</span>
+          <span>Midea Engineering · Local commissioning</span>
           <button onClick={() => setLang(lang === "en" ? "id" : "en")}>
             {lang === "en" ? "Bahasa Indonesia" : "English"}
           </button>
@@ -243,17 +233,8 @@ function App() {
   return (
     <div className="shell">
       <aside>
-        <div className="brand">
-          <div className="mark">
-            <Icon />
-          </div>
-          <div>
-            ENERGY
-            <br />
-            <strong>STATION</strong>
-          </div>
-        </div>
-        <div className="side-label">GATEWAY CONSOLE</div>
+        <div className="brand"><MideaBrand compact /></div>
+        <div className="side-label">POWER MONITORING</div>
         <nav aria-label="Main navigation">
           {tabs.map(([key, icon]) => (
             <button
@@ -271,7 +252,7 @@ function App() {
           <div className="device-dot" />
           <b>ESP32-C3</b>
           <small>
-            Energy Station v1
+            LoRa gateway · Protocol v1
             <br />
             Local AP · 192.168.4.1
           </small>
@@ -288,12 +269,12 @@ function App() {
       <div className="workspace">
         <header className="topbar">
           <span>
-            <span className="muted">Console</span> / {t[page]}
+            <span className="muted">Midea Engineering</span> / {t[page]}
           </span>
           <div>
             <span className="local-chip">
               <i />
-              Local connection
+              Gateway AP
             </span>
             <button onClick={() => setLang(lang === "en" ? "id" : "en")}>
               {lang === "en" ? "EN / ID" : "ID / EN"}
@@ -313,7 +294,7 @@ function App() {
               </span>
               <h1>
                 {t[page]}
-                <span className="green">.</span>
+
               </h1>
               <p>{t.subtitle}</p>
             </div>
@@ -566,8 +547,8 @@ function App() {
                 </section>
               </div>
               <section className="card capacity">
-                <h2>Airtime planning</h2>
-                <Field label="Assumed periodic interval, seconds">
+                <h2>LoRa airtime and refresh policy</h2>
+                <Field label="Node transmission interval for estimation (seconds)">
                   <input
                     type="number"
                     min="30"
@@ -596,8 +577,9 @@ function App() {
                     ? "Increase node intervals and leave room for HELLO, retries, POLLs, and fragments."
                     : "Leave headroom for HELLO, retries, POLLs, and checkpoint ACKs."}{" "}
                   This is a calculation, not measured RF capacity. Node
-                  intervals are changed on each node.
+                  intervals are changed on each node. The gateway requests fresh telemetry only when a node has missed its expected update; automatic requests are rate-limited and do not reserve TDMA slots.
                 </p>
+                <p>Automatic live requests: {view.automaticPolls ?? 0} · Queue/storage errors: {view.automaticPollErrors ?? 0}. Requests start after a one-hour interval plus a two-minute grace period and are spaced apart across nodes.</p>
                 <button onClick={exportLogs}>Export bounded log ↓</button>
               </section>
             </>
@@ -628,7 +610,7 @@ function App() {
             </Modal>
           )}
           <footer>
-            <span>ENERGY STATION / GATEWAY 0.1.1</span>
+            <span>MIDEA ENGINEERING / LORA GATEWAY</span>
             <span>
               Boot {view.boot} · {age(view.uptime)} uptime
             </span>

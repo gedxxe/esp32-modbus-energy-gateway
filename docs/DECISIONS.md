@@ -6,7 +6,7 @@ ESP32-C3 supersedes the initial brief's C6 target by explicit user correction. U
 
 ## D002 — Protocol and evidence
 
-Pin node source to 26c3a9429c8c4d410ef11a1b81e1e42f295034b1. Validate production codec against its public vector and source behavior. Software tests and RF commissioning are separate acceptance stages.
+Use the node source at 770512260ef5133296790ee21d2635c55f00196f (3.5.0) as the current protocol reference; keep the earlier 3.4.3 vector hashes as historical provenance. Validate production codec against its public vector and source behavior. Software tests and RF commissioning are separate acceptance stages.
 
 ## D003 — Local UI
 

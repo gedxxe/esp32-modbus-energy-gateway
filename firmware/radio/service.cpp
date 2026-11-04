@@ -178,6 +178,9 @@ void publish() {
     x.hasLive = n.hasLive;
     x.received = n.received;
     x.live = n.live;
+    x.hasLastValid = n.hasLastValid;
+    x.lastValidReceived = n.lastValidReceived;
+    x.lastValid = n.lastValid;
     x.rssi = n.rssi;
     x.snr = n.snr;
     x.lastPacketReceived = n.lastPacketReceived;

@@ -29,7 +29,9 @@ struct NodeView {
   uint64_t lastPacketReceived = 0;
   uint32_t accepted = 0, duplicates = 0, lastSequence = 0;
   uint8_t lastType = 0;
-  Live live{};
+  Live live{}, lastValid{};
+  bool hasLastValid = false;
+  uint64_t lastValidReceived = 0;
   float rssi = 0, snr = 0;
   RequestState request = RequestState::Idle;
   uint32_t correlation = 0;

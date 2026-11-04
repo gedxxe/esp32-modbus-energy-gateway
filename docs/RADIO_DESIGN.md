@@ -1,0 +1,43 @@
+# Radio architecture and refresh scheduling
+
+This document describes the current LoRa application protocol and the gateway scheduling policy. The upstream [ESP32 Modbus power-meter firmware](https://github.com/gedxxe/esp32-modbus-energy) defines the wire format. Only the gateway implementation is changed here. The present system is an authenticated point-to-multipoint network using raw LoRa, not LoRaWAN, an IP network or TDMA. An operator clicking **Request live** is asking the gateway to send a read-only request to a node; it is not a Modbus register request forwarded through the radio. The node remains responsible for all meter communication.
+
+## End-to-end data flow
+
+```text
+Power meter -- Modbus RTU / RS485 --> ESP32-S3 node
+          --> validation and PT/CT scaling
+          --> authenticated TELEMETRY over SX1262 LoRa
+          --> ESP32-C3 gateway (HMAC, replay checks, receiver)
+          --> last-valid snapshot / checkpoint archive
+          --> local HTTP API
+          --> Midea Engineering dashboard
+```
+
+The selected meter produces a total active energy value in kWh. The radio protocol v1 carries the fully scaled engineering value, flags, profile identifier, meter inventory identifier, source UTC when valid, sample age, checkpoint day and revision. The gateway checks the packet authentication tag, source address, session, replay window and payload fields before updating its in-memory snapshot. No second PT/CT scaling is done at the receiver. The latest received telemetry and the most recent **valid** kWh reading are independent: an invalid newer packet must not erase the most recent good measurement. The displayed value is always accompanied by an age/freshness indicator and is never silently presented as a new sample.
+
+The format is a 24-byte little-endian header plus up to 112 payload bytes and a 16-byte truncated HMAC-SHA256 tag. Message types are HELLO (1), ACK (2), TELEMETRY (3), POLL (4) and CHECKPOINT (5). A TELEMETRY payload has 32 bytes. Byte offsets 0–3 identify the related POLL sequence, or zero for an unsolicited periodic update. The energy is an IEEE754 binary64 value at offsets 24–31. Missing/invalid energy is identified by the validity flag and is not a measured zero. The HMAC authenticates packets; it does not encrypt the contents. Each installed node must use a distinct 32-byte pairing key with matching network/node IDs at both endpoints. The public interoperability vector in `docs/lora-v1-vector.json` is for testing only.
+
+## Manual refresh (LoRa request/response)
+
+When an operator requests a live sample, the browser sends an authorized HTTP POST to the local gateway. The gateway queues the request and reserves a new downlink sequence in non-volatile storage **before** transmitting. It then sends a LoRa POLL with mode 0 and the selected node's session and address. After checking the request, the node queues a TELEMETRY response containing the reserved POLL sequence in its correlation field. The gateway accepts that response only when the node, session, request state and correlation all match; the displayed reading is updated only after the telemetry itself is authenticated and decoded. The node does not return a separate ACK to a POLL; it returns data. A command returning HTTP 202 means the request has entered the gateway command queue and does **not** guarantee a radio response or fresh meter value. The radio state and response timeout must be monitored separately.
+
+Checkpoint retrieval uses POLL mode 1. A node returns a frozen 446-byte capture record in authenticated CHECKPOINT fragments. The receiver validates fragment ordering, integrity and the complete schema before committing the record to local flash. A packet ACK indicates acceptance into the gateway radio path, not successful durable storage. The record may be requested again using a new sequence after a power interruption. A missing checkpoint day has no explicit not-found response in protocol v1; the request times out as unavailable.
+
+## Periodic reporting and collision handling
+
+The upstream node supports a configurable periodic interval from 30 seconds to one hour. A practical first installation uses one hour for each node, but **equal intervals do not create separate time slots**. Devices boot at different times, have their own clocks and contend for the same half-duplex LoRa channel. Autonomous uplinks can still overlap. The node already randomizes its first transmission and retry backoff and enforces an airtime budget. The gateway cannot guarantee collision avoidance without coordinating schedules on the nodes. A slot assignment protocol or true TDMA would require a separate, versioned change in **both** repositories and careful time synchronization.
+
+The gateway therefore applies a conservative complementary policy. It always prioritizes authentication and ACKs for incoming packets, and it orders queued transmissions fairly across configured nodes. It respects its own 1% airtime limit, with a single SPI/radio owner and bounded queues. Automatic refresh is a fallback rather than a second high-frequency reporting system. For a node with a valid recent energy reading, the gateway waits **one hour plus two minutes** after its last received telemetry. If that time has passed without a successful new report, it can queue a POLL mode 0. Requests for different nodes are separated by at least **45 seconds**, and an attempted automatic request cannot be repeated for the same node within **five minutes**. If the latest report did not contain valid energy, the gateway uses the shorter five-minute retry threshold, still subject to one pending request at a time. The gateway skips automatic requests when another POLL, a session challenge, an archive transfer, queued TX work or the airtime gate is active. Manual requests and ACKs are therefore favored over automatic refresh.
+
+These constants are defined in `firmware/core/refresh_policy.h` and inspected through the status API as `autoRefreshIntervalMs`, `autoRefreshGraceMs`, `automaticPolls` and `automaticPollErrors`. This is **round-robin stale-data polling with backoff**, not TDMA, frequency hopping or guaranteed latency. The 1% limit is a conservative budget used by the firmware scheduler, not a guarantee that the selected frequency, TX power and airtime comply with every applicable Indonesian radio regulation. Antenna placement and local RF compliance must be checked before deployment.
+
+## Session and replay safety
+
+The node generates a random session nonce after reboot or radio reconfiguration. The gateway accepts HELLO as a candidate session, ACKs it and verifies that the node can respond to a new correlated POLL before promoting the candidate. Downlink POLL sequences advance and are reserved durably; losing the stored ledger blocks further POLL transmissions instead of reusing sequence numbers that the node may reject. Duplicate authenticated packets are ACKed again without inserting duplicated records. Stale or conflicting sequence reuse is rejected. The gateway does not silently reassign node IDs, alter the Modbus connection, change the node's interval, reboot the node or write any meter registers; protocol v1 provides no such commands.
+
+## Measurable commissioning and limitations
+
+Start with one node before commissioning four nodes in a production hall. Verify that the RF module is correctly wired and initialized, both ends have matching PHY settings and keys, authenticated HELLO and session confirmation complete, manual refresh produces correlated telemetry, the reported kWh matches the node's reading, and the response returns after a cold boot. Then test all nodes at an hourly reporting interval, request refresh from two nodes successively and verify that missing/invalid replies are never presented as zero. Record RSSI/SNR, retries, CRC errors, timeout rates, actual airtime and the wall-clock latency from a manual click until the accepted response. Include a power interruption, a missing archive day and a deliberately offline node.
+
+Software tests prove codec and scheduling behavior under modeled inputs. They do not prove range through reinforced factory walls, the absence of collisions, radio throughput under interference, or meter calibration. The current wire protocol does **not** provide current, voltage, power factor, power demand or every possible meter measurement; its live payload is primarily scaled kWh with status and source metadata. Supporting further quantities requires a negotiated protocol v2 with corresponding node changes, not unverified placeholder fields on the dashboard.

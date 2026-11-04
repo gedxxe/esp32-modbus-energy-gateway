@@ -8,3 +8,26 @@ __pycache__/
 .cache/
 *.log
 release/*.zip
+
+# Generated artifacts and workstation-specific files
+release/
+*.elf
+*.map
+*.bin
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.local
+.cache/
+.temp/
+temp/
+tmp/
+build/
+dist/
+coverage/
+test-results/

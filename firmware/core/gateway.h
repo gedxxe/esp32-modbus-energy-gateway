@@ -39,8 +39,9 @@ struct Pending {
 };
 struct NodeState {
   Session current{}, candidate{};
-  Live live{};
-  bool hasLive = false, helloAcked = false;
+  Live live{}, lastValid{};
+  bool hasLive = false, hasLastValid = false, helloAcked = false;
+  uint64_t lastValidReceived = 0;
   uint64_t received = 0, lastChallenge = 0, confirmed = 0;
   uint64_t lastPacketReceived = 0;
   uint32_t accepted = 0, duplicates = 0;

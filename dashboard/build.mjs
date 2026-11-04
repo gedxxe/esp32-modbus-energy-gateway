@@ -13,7 +13,7 @@ await build({
 });
 const js = await readFile("dist/app.js", "utf8"),
   css = await readFile("src/style.css", "utf8");
-const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#111913"><title>Energy Station · Gateway</title><style>${css}</style></head><body><div id="root"></div><script>${js.replaceAll("</script", "<\\/script")}</script></body></html>`;
+const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#07539c"><title>Midea Engineering | LoRa Power Monitoring</title><style>${css}</style></head><body><div id="root"></div><script>${js.replaceAll("</script", "<\\/script")}</script></body></html>`;
 await writeFile("dist/index.html", html);
 const zipped = gzipSync(Buffer.from(html), { level: 9, mtime: 0 });
 await writeFile("dist/index.html.gz", zipped);

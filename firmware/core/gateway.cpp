@@ -246,6 +246,11 @@ Reject Gateway::receive(const uint8_t *wire, size_t size, uint64_t now, float rs
       n.live = l;
       n.hasLive = true;
       n.received = now;
+      if ((l.flags & 1) && std::isfinite(l.kwh)) {
+        n.lastValid = l;
+        n.hasLastValid = true;
+        n.lastValidReceived = now;
+      }
     }
   } else if (f.type == Checkpoint) {
     Pending &p = n.pending;

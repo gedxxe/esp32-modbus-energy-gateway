@@ -473,6 +473,24 @@ void sessions() {
   timeout.tick(timeout.nodes[0].pending.deadline + 1);
   CHECK(timeout.nodes[0].pending.state == RequestState::Unavailable && timeoutIO.saved == 0);
 }
+void retainedLastValidReading() {
+  IO io;
+  Gateway g(io);
+  g.configure(config());
+  g.nodes[0].current.nonce = 2026;
+  Frame first = frame(g.config, 0, Telemetry, 1, 2026);
+  CHECK(receive(g, first, 0, 1000) == Reject::None);
+  CHECK(g.nodes[0].hasLastValid);
+  CHECK(g.nodes[0].lastValid.kwh == 123.456);
+  CHECK(g.nodes[0].lastValidReceived == 1000);
+  Frame invalid = frame(g.config, 0, Telemetry, 2, 2026);
+  invalid.payload[12] = 8;
+  memset(invalid.payload + 24, 0, 8);
+  CHECK(receive(g, invalid, 0, 1500) == Reject::None);
+  CHECK(g.nodes[0].hasLive && !(g.nodes[0].live.flags & 1));
+  CHECK(g.nodes[0].hasLastValid && g.nodes[0].lastValid.kwh == 123.456);
+  CHECK(g.nodes[0].lastValidReceived == 1000);
+}
 void automaticRefresh() {
   RefreshPolicy policy;
   CHECK(!policy.due(0, 1000 + RefreshIntervalMs, 1000, true));
@@ -614,5 +632,6 @@ int main(int argc, char **argv) {
   sessions();
   scheduler();
   automaticRefresh();
+  retainedLastValidReading();
   std::cout << "PASS " << checks << " production-core regression assertions\n";
 }
