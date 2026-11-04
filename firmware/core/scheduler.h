@@ -4,8 +4,9 @@
 #include "config.h"
 namespace gw {
 constexpr size_t TxCapacity = 32;
-// Hold transmit queue slots for ACKs even during multiple manual/automatic POLLs.
-constexpr size_t TxAckReserve = 8;
+// Keep one reserved ACK queue slot per configured node identity. The other
+// half of the 32-job queue can hold at most one POLL per inventory slot.
+constexpr size_t TxAckReserve = InventoryCapacity;
 uint32_t airtimeUs(const Phy &p, size_t bytes);
 struct TxJob {
   bool used = false;
