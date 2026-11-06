@@ -80,7 +80,12 @@ bool Gateway::ack(uint8_t i, const Frame &f, uint64_t now) {
   j.node = i;
   j.frame = acknowledge(f);
   j.ready = now;
-  j.expires = now + 60000;
+  // The node accepts a matching late ACK during retry/duty backoff.
+  // At high spreading factors a previous gateway transmission can
+  // block ACK TX for >60 s; do not discard it before the duty gate opens.
+  const uint64_t minimumExpiry = now + 60000;
+  const uint64_t dutyExpiry = scheduler.nextTx + 30000;
+  j.expires = dutyExpiry > minimumExpiry ? dutyExpiry : minimumExpiry;
   j.revision = config.revision;
   return scheduler.enqueue(j);
 }
