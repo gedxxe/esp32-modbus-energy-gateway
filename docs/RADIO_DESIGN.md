@@ -5,7 +5,7 @@
 
 # Radio architecture and refresh scheduling
 
-This document describes the current LoRa application protocol and the gateway scheduling policy. The upstream [ESP32 Modbus power-meter firmware](https://github.com/gedxxe/esp32-modbus-energy) defines the wire format. A companion ESP32-S3 node PR adds nonblocking SX1262 CAD before uplinks; the Energy Station v1 packet contract remains unchanged. The present system is an authenticated point-to-multipoint network using raw LoRa, not LoRaWAN, an IP network or TDMA. An operator clicking **Request live** is asking the gateway to send a read-only request to a node; it is not a Modbus register request forwarded through the radio. The node remains responsible for all meter communication.
+This document describes the current LoRa application protocol and the gateway scheduling policy. The upstream [ESP32 Modbus power-meter firmware](https://github.com/gedxxe/esp32-modbus-energy) defines the wire format. The audited ESP32-S3 node main revision already includes nonblocking SX1262 CAD before uplinks; the Energy Station v1 packet contract remains unchanged. The present system is an authenticated point-to-multipoint network using raw LoRa, not LoRaWAN, an IP network or TDMA. An operator clicking **Request live** is asking the gateway to send a read-only request to a node; it is not a Modbus register request forwarded through the radio. The node remains responsible for all meter communication.
 
 [Collisions](COLLISION_CONTROL.md) · [Node compatibility](NODE_COMPATIBILITY.md) · [Commissioning](COMMISSIONING.md)
 
@@ -59,6 +59,6 @@ The current C3 gateway also performs SX1262 Channel Activity Detection before a 
 
 <details><summary><b>Node-side carrier sensing</b></summary>
 
-The companion node implementation uses RadioLib `startChannelScan()` / `getChannelScanResult()` before every autonomous uplink. A busy channel returns the node to RX and schedules bounded random exponential backoff without changing the outstanding frame sequence, session or HMAC. The gateway uses CAD only for lower-priority POLLs; ACKs bypass CAD but retain their airtime budget. Hidden-node collision, external interferers and physical RF range remain unverified. [Read the detailed medium-access design](COLLISION_CONTROL.md).
+The current node implementation uses RadioLib `startChannelScan()` / `getChannelScanResult()` before every autonomous uplink. A busy channel returns the node to RX and schedules bounded random exponential backoff without changing the outstanding frame sequence, session or HMAC. The gateway uses CAD only for lower-priority POLLs; ACKs bypass CAD but retain their airtime budget. Hidden-node collision, external interferers and physical RF range remain unverified. [Read the detailed medium-access design](COLLISION_CONTROL.md).
 
 </details>
