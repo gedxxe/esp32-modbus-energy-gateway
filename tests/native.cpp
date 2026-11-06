@@ -583,6 +583,25 @@ void channelAccess() {
   g.nodes[0].pending.state = RequestState::Unavailable;
   CHECK(!g.nextTx(again + channelBackoffMs(78, 3), j));
 }
+void slowPhyAckRetention() {
+  IO io;
+  Gateway g(io);
+  Config slow = config();
+  slow.phy.sf = 12;
+  g.configure(slow);
+  const uint64_t session = 0x8877665544332211ULL;
+  g.nodes[0].current.nonce = session;
+  const uint32_t ackAirMs = (airtimeUs(slow.phy, 41) + 999) / 1000;
+  g.scheduler.charge(1000, ackAirMs);
+  CHECK(g.scheduler.nextTx > 1000 + 60000);
+  CHECK(receive(g, frame(slow, 0, Telemetry, 1, session), 0, 2000) == Reject::None);
+  CHECK(g.scheduler.depth == 1);
+  TxJob lateAck;
+  CHECK(!g.nextTx(2000 + 60001, lateAck));
+  CHECK(g.scheduler.depth == 1);
+  CHECK(g.nextTx(g.scheduler.nextTx, lateAck) &&
+        lateAck.frame.type == Ack && lateAck.frame.sequence == 1);
+}
 void slowPhySessionChallenge() {
   IO io;
   Gateway g(io);
@@ -792,6 +811,7 @@ int main(int argc, char **argv) {
   automaticRefresh();
   channelAccess();
   slowPhySessionChallenge();
+  slowPhyAckRetention();
   fourNodePtmp();
   retainedLastValidReading();
   std::cout << "PASS " << checks << " production-core regression assertions\n";
