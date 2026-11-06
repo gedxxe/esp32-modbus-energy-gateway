@@ -20,6 +20,6 @@ Archive cleanup and detection of a completely erased installation are gateway ma
 
 <details><summary><b>Node-side CAD is a medium-access update, not protocol v2</b></summary>
 
-The companion [ESP32-S3 node PR](https://github.com/gedxxe/esp32-modbus-energy/pull/5) uses SX1262 CAD before autonomous HELLO/TELEMETRY/CHECKPOINT, retaining the same signed 24-byte-header LoRa v1 packets and ACK semantics. Gateway-only changes cannot force a hidden transmitter to obey a slot; a future TDMA design must be explicitly versioned, synchronized and tested as a coordinated node/gateway change.
+The audited [ESP32-S3 client main](https://github.com/gedxxe/esp32-modbus-energy/tree/3896a8b46bd2cd63f9756a46f0b4198a20aac6c2/firmware) uses SX1262 CAD before autonomous HELLO/TELEMETRY/CHECKPOINT, retaining the same signed 24-byte-header LoRa v1 packets and ACK semantics. Gateway-only changes cannot force a hidden transmitter to obey a slot; a future TDMA design must be explicitly versioned, synchronized and tested as a coordinated node/gateway change.
 
 </details>
