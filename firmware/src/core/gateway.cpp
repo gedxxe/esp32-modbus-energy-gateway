@@ -145,7 +145,15 @@ void Gateway::sequenceReady(uint8_t i, uint32_t t, bool ok, uint32_t seq, uint64
   j.frame.payload[0] = p.mode;
   p32(j.frame.payload + 1, p.day);
   j.ready = now + 500;
-  j.expires = now + 120000;
+  // At SF11/SF12, the required 1% TX quiet time after HELLO ACK can
+  // exceed the old fixed 120 s POLL expiry. Never retire a pending
+  // session challenge before the gateway is allowed to transmit it.
+  // Allow another ACK airtime budget plus bounded CAD/backoff margin.
+  const uint64_t ackQuietMs =
+      (uint64_t(airtimeUs(config.phy, 41) + 999) / 1000) * 100;
+  const uint64_t dutyExpiry = scheduler.nextTx + ackQuietMs + 30000;
+  const uint64_t minimumExpiry = now + 120000;
+  j.expires = dutyExpiry > minimumExpiry ? dutyExpiry : minimumExpiry;
   j.revision = config.revision;
   p.state = RequestState::Queued;
   p.deadline = j.expires;
