@@ -19,19 +19,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Check out pinned ESP32-S3 peer source (read-only)
+      - name: Check out audited current ESP32-S3 main (read-only)
+        uses: actions/checkout@v4
+        with:
+          repository: gedxxe/esp32-modbus-energy
+          ref: 3896a8b46bd2cd63f9756a46f0b4198a20aac6c2
+          path: .peer
+          persist-credentials: false
+      - name: Check out legacy LoRa v1 baseline (read-only)
         uses: actions/checkout@v4
         with:
           repository: gedxxe/esp32-modbus-energy
           ref: 737cfff590c0cbea33895df17c3e3ffc06449e15
-          path: .peer
-          persist-credentials: false
-      - name: Check out companion PTMP node revision (read-only)
-        uses: actions/checkout@v4
-        with:
-          repository: gedxxe/esp32-modbus-energy
-          ref: 97d2749bf54d76ebbfefa2c286dcb0124a29beac
-          path: .peer-ptmp
+          path: .peer-legacy
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
@@ -43,18 +43,18 @@ jobs:
           python-version: '3.11'
       - name: Repository privacy and historical report
         run: python tools/security_audit.py --history
-      - name: Upstream package and LoRa wire compatibility (read-only baseline)
+      - name: Current node package and LoRa wire compatibility (read-only)
         run: python tools/check_compatibility.py --node-platformio .peer/firmware/platformio.ini
       - name: ESP32-C3 GPIO and wiring-diagram integrity
         run: python tools/check_wiring.py
       - name: Standard PlatformIO folder and include resolution
         run: python tools/check_layout.py
-      - name: Compile actual node and gateway wire contract together
+      - name: Compile production gateway wire codec against current node main
         run: python tools/test_peer_wire.py .peer
-      - name: Verify companion node package compatibility
-        run: python tools/check_compatibility.py --node-platformio .peer-ptmp/firmware/platformio.ini
-      - name: Compile production LoRa codec against companion node revision
-        run: python tools/test_peer_wire.py .peer-ptmp
+      - name: Verify legacy v1 node package compatibility
+        run: python tools/check_compatibility.py --node-platformio .peer-legacy/firmware/platformio.ini
+      - name: Compile production LoRa codec against legacy node revision
+        run: python tools/test_peer_wire.py .peer-legacy
       - name: Native radio, scheduler and persistence regression
         run: python tools/test_native.py
       - name: Build offline dashboard and run DOM tests
