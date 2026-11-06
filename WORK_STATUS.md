@@ -27,3 +27,7 @@ New gateway-only draft PR #2 pins the latest inspected read-only node commit `73
 Gateway source has been reorganized into `firmware/src/` and `firmware/include/`, with `firmware/platformio.ini`, `firmware/partitions.csv` and `firmware/.vscode/`. Open `firmware/` directly in VS Code. The radio default remains 915 MHz and 14 dBm configured TX. Cross-compile and CI tests remain separate from hardware RF acceptance.
 
 [View PlatformIO guide](docs/PLATFORMIO_VSCODE.md) · [CAD flow diagram](docs/assets/channel-access.svg) · [Wiring](docs/assets/wiring-c3.svg)
+
+## Gateway-only peer sync re-audit (2026-11-06)
+
+The current read-only node `main` at `3896a8b46bd2cd63f9756a46f0b4198a20aac6c2` has been compared against the gateway's LoRa v1 packet handling. The gateway audit branch extends CI to exercise the exact current peer as well as the original v1 baseline, adds CHECKPOINT frame/ACK interoperability coverage, and corrects slow-PHY duty-gate expiry handling for queued HELLO-session challenge POLLs and ACKs. These are gateway-only changes; node firmware was not modified. See [the dated peer audit](docs/LORA_PEER_AUDIT_20261106.md) and [CI checks](https://github.com/gedxxe/esp32-modbus-energy-gateway/actions). Physical gateway/node RF acceptance is still pending.
