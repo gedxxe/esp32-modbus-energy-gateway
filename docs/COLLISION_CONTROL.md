@@ -18,7 +18,7 @@
 | --- | --- | --- |
 | Radio owner | One FreeRTOS task owns SX1262 SPI / RX / CAD / TX | One FreeRTOS radio task on its supported application core |
 | Uplink scheduling | Listens to independent node uplinks | Autonomous HELLO, TELEMETRY, CHECKPOINT |
-| Channel sensing | CAD before **POLL**; priority ACK bypasses CAD | CAD before **every uplink** in node companion PR |
+| Channel sensing | CAD before **POLL**; priority ACK bypasses CAD | CAD before **every uplink** in audited node main |
 | Congestion handling | Shared TX airtime gate, ACK queue reserve, fair scheduling | Hardware-random bounded exponential backoff; original frame retained |
 | Retransmission | POLL sequence is reserved durably, not changed while CAD defers | Retries preserve immutable bytes, session and sequence |
 | Packet integrity | Per-node HMAC key, address, session, replay window and correlation | Validate HMAC, destination, session and exact ACK / POLL sequence |
@@ -65,6 +65,6 @@ For example, four nodes each producing one acknowledged telemetry uplink per min
 
 ## Source references and counters
 
-Gateway sources: `firmware/src/radio/service.cpp`, `firmware/include/core/channel_access.h`, `firmware/src/core/gateway.cpp`, `firmware/src/core/scheduler.cpp`. Node counterpart: [LoRa worker and protocol](https://github.com/gedxxe/esp32-modbus-energy/tree/feature/lora-ptmp-anti-collision-20261105/firmware). The gateway status API exposes `cadBusy`, `cadClear`, `cadErrors`, `cadDeferred`, ACKs, HMAC failures, timeouts and queue drops. The node companion exposes the same four CAD counters.
+Gateway sources: `firmware/src/radio/service.cpp`, `firmware/include/core/channel_access.h`, `firmware/src/core/gateway.cpp`, `firmware/src/core/scheduler.cpp`. Node counterpart (read-only): [LoRa worker and protocol on audited main](https://github.com/gedxxe/esp32-modbus-energy/tree/3896a8b46bd2cd63f9756a46f0b4198a20aac6c2/firmware). The gateway status API exposes `cadBusy`, `cadClear`, `cadErrors`, `cadDeferred`, ACKs, HMAC failures, timeouts and queue drops. The node companion exposes the same four CAD counters.
 
 See [radio engineering and legal RF reference](RF_COMPLIANCE_ID.md). **The 915 MHz source default is retained**, while permitted on-air operation, EIRP and equipment certification remain site-specific checks.
