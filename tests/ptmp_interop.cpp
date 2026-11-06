@@ -104,7 +104,39 @@ int main() {
     wire[7] ^= 1;
     REQUIRE(gw::decode(wire, teleBody + 16, key, decodedTele) != gw::Reject::None);
     ++passes;
+
+    // Client CHECKPOINT fragment must use the same signed codec and gateway
+    // framing. The maximum fragment is 12 metadata + 100 data bytes.
+    fort::lora::Frame fragment = nodeHello;
+    fragment.type = fort::lora::CHECKPOINT;
+    fragment.length = 112;
+    fragment.sequence = 4;
+    std::memset(fragment.payload, 0, sizeof(fragment.payload));
+    fort::lora::put32(fragment.payload, poll.sequence);
+    fort::lora::put32(fragment.payload + 4, 20000);
+    fort::lora::put16(fragment.payload + 8, 0);
+    fort::lora::put16(fragment.payload + 10, 446);
+    for (unsigned b = 0; b < 100; ++b)
+      fragment.payload[12 + b] = uint8_t(b + 1);
+    const size_t fragmentBody = fort::lora::encodeFrame(fragment, wire);
+    REQUIRE(fragmentBody == 136);
+    gw::hmac(key, wire, fragmentBody, mac);
+    std::memcpy(wire + fragmentBody, mac, 16);
+    gw::Frame decodedFragment;
+    REQUIRE(gw::decode(wire, fragmentBody + 16, key, decodedFragment) == gw::Reject::None);
+    REQUIRE(decodedFragment.type == gw::Checkpoint &&
+            gw::u32(decodedFragment.payload) == poll.sequence);
+    REQUIRE(gw::u16(decodedFragment.payload + 8) == 0 &&
+            gw::u16(decodedFragment.payload + 10) == 446);
+    const gw::Frame archiveAck = gw::acknowledge(decodedFragment);
+    const size_t archiveAckLen = gw::encode(archiveAck, key, reply);
+    REQUIRE(archiveAckLen == 41);
+    REQUIRE(fort::lora::decodeFrame(reply, archiveAckLen - 16, parsed));
+    REQUIRE(fort::lora::addressed(parsed, settings, fragment.session));
+    REQUIRE(fort::lora::acknowledges(parsed, fragment));
+    ++passes;
+
   }
   std::cout << "PASS: " << passes
-            << " cross-firmware wire checks (HELLO/ACK/POLL/TELEMETRY, 16 node IDs)\n";
+            << " cross-firmware wire checks (HELLO/ACK/POLL/TELEMETRY/CHECKPOINT, 16 node IDs)\n";
 }
