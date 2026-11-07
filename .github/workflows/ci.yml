@@ -12,33 +12,59 @@ permissions:
   contents: read
 
 jobs:
+  quality-gate:
+    name: Quality Check Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Reject whitespace errors in changed sources
+        run: git diff --check HEAD^ HEAD
+      - name: Python tooling syntax and repository hygiene
+        run: |
+          python -m compileall -q tools
+          python tools/check_layout.py
+          python tools/security_audit.py
+          python tools/check_compatibility.py
+      - name: C++ core runtime quality gate (UBSan, assertions, HMAC vectors)
+        run: python tools/test_native.py --sanitizers
+
   source-and-firmware:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Check out audited current ESP32-S3 main (read-only)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: gedxxe/esp32-modbus-energy
-          ref: 3896a8b46bd2cd63f9756a46f0b4198a20aac6c2
+          ref: a0e48ba9c1756e655318168d01ffaed10c151ec7
           path: .peer
           persist-credentials: false
       - name: Check out legacy LoRa v1 baseline (read-only)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: gedxxe/esp32-modbus-energy
           ref: 737cfff590c0cbea33895df17c3e3ffc06449e15
           path: .peer-legacy
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: dashboard/package-lock.json
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
       - name: Repository privacy and historical report
@@ -51,6 +77,8 @@ jobs:
         run: python tools/check_layout.py
       - name: Compile production gateway wire codec against current node main
         run: python tools/test_peer_wire.py .peer
+      - name: Compile current client meter profiles against gateway contract
+        run: python tools/test_client_profiles.py .peer
       - name: Verify legacy v1 node package compatibility
         run: python tools/check_compatibility.py --node-platformio .peer-legacy/firmware/platformio.ini
       - name: Compile production LoRa codec against legacy node revision
@@ -78,7 +106,7 @@ jobs:
           python tools/package.py
           python tools/package.py --verify
       - name: Publish audited gateway release as a workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gateway-esp32c3-audit
           path: |

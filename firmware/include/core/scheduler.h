@@ -25,6 +25,11 @@ public:
   uint32_t drops = 0, expired = 0, coalesced = 0;
   size_t depth = 0;
   bool enqueue(const TxJob &job);
+  // Protect queued ACK/POLL frames from expiry during an outstanding ACK burst.
+  uint64_t protectDutyQueue(uint64_t now, const Phy &phy);
+  // An expired or already-popped POLL must never be resurrected in node state.
+  uint64_t queuedPollExpiry(uint8_t node, uint32_t sequence, uint64_t session,
+                            uint64_t now) const;
   bool pop(uint64_t now, TxJob &out);
   void charge(uint64_t now, uint32_t airtimeMs) {
     nextTx = now + uint64_t(airtimeMs) * 100;

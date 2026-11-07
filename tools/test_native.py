@@ -1,13 +1,21 @@
 """Compile and exercise production C++ sources, then upstream's independent fixture check."""
 from pathlib import Path
-import json,subprocess,os,hmac,hashlib,random
+import json,subprocess,os,hmac,hashlib,random,sys
 root=Path(__file__).resolve().parent.parent
 os.chdir(root)
 build=root/'.build';build.mkdir(exist_ok=True)
-binary=build/('gateway-tests.exe' if os.name=='nt' else 'gateway-tests')
+sanitize = '--sanitizers' in sys.argv
+binary=build/('gateway-tests-ubsan' if sanitize else
+              ('gateway-tests.exe' if os.name=='nt' else 'gateway-tests'))
 sources=sorted((root/'firmware/src/core').glob('*.cpp'))+sorted((root/'firmware/src/storage').glob('*.cpp'))
 cmd=['g++','-std=c++17','-O2','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-Ifirmware/include','-Ifirmware/include/app','-Ifirmware/include/core','-Ifirmware/include/storage','-Ifirmware/include/web','tests/native.cpp',*[str(p) for p in sources],'-o',str(binary)]
-print('Compiling production core with native g++',flush=True)
+if sanitize:
+    # The quality gate must detect undefined C++ behavior (not only compile).
+    # Host-only instrumentation: never included in ESP32-C3 production firmware.
+    cmd.extend(['-fsanitize=undefined', '-fno-sanitize-recover=all',
+                '-fno-omit-frame-pointer', '-g'])
+print('Compiling production core with native g++' +
+      (' (UBSan)' if sanitize else ''), flush=True)
 subprocess.run(cmd,check=True)
 subprocess.run([str(binary)],check=True)
 v=json.loads((root/'docs/lora-v1-vector.json').read_text())

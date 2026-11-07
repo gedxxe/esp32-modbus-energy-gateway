@@ -9,12 +9,43 @@ uint32_t airtimeUs(const Phy &p, size_t n) {
       8 + std::fmax(0., std::ceil((8. * n - 4 * p.sf + 28 + 16) / (4. * (p.sf - 2 * de))) * p.cr);
   return uint32_t(std::ceil((p.preamble + 4.25 + payload) * symbol * 1e6));
 }
+uint64_t Scheduler::protectDutyQueue(uint64_t now, const Phy &phy) {
+  size_t pendingAcks = 0;
+  for (const auto &job : jobs)
+    if (job.used && job.frame.type == Ack && job.expires > now)
+      ++pendingAcks;
+  // ACKs take precedence over queued POLLs. Every outstanding ACK may
+  // consume another 1%-paced TX slot (SF12/BW125: >200 seconds each).
+  const uint64_t quietMs = uint64_t((airtimeUs(phy, 41) + 999) / 1000) * 100;
+  const uint64_t firstAllowed = nextTx > now ? nextTx : now;
+  const uint64_t expiry = firstAllowed + pendingAcks * quietMs + 30000;
+  for (auto &job : jobs)
+    if (job.used && (job.frame.type == Ack || job.frame.type == Poll) &&
+        job.expires > now && job.expires < expiry)
+      job.expires = expiry;
+  return expiry;
+}
+uint64_t Scheduler::queuedPollExpiry(uint8_t node, uint32_t seq, uint64_t session,
+                                     uint64_t now) const {
+  for (const auto &job : jobs)
+    if (job.used && job.frame.type == Poll && job.node == node &&
+        job.frame.sequence == seq && job.frame.session == session &&
+        job.expires > now)
+      return job.expires;
+  return 0;
+}
 bool Scheduler::enqueue(const TxJob &job) {
   if (job.frame.type == Ack)
     for (auto &x : jobs)
       if (x.used && x.frame.type == Ack && x.node == job.node &&
           x.frame.session == job.frame.session && x.frame.sequence == job.frame.sequence &&
           x.frame.payload[0] == job.frame.payload[0]) {
+        // A late retry must not coalesce into an already expired ACK.
+        if (x.expires <= job.ready) {
+          x = job;
+          x.used = true;
+          return true;
+        }
         coalesced++;
         return true;
       }
