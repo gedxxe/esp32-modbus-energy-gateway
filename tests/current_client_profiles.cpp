@@ -19,7 +19,7 @@ int main() {
     const auto &p = fort::profiles::get(id);
     if (p.id != id || !gw::meter_profile::valid(id)) return 1;
     if (id == 6 || id == 7) {
-      if (p.energy.encoding != fort::F32 || p.energy.scale != 1.0 ||
+      if (p.energy.encoding != fort::profiles::F32 || p.energy.scale != 1.0 ||
           p.ratioLayout != fort::profiles::NO_RATIO) return 2;
       const float reading = 7838.875f;
       uint32_t raw;
