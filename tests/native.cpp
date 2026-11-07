@@ -583,6 +583,60 @@ void channelAccess() {
   g.nodes[0].pending.state = RequestState::Unavailable;
   CHECK(!g.nextTx(again + channelBackoffMs(78, 3), j));
 }
+void slowPhyAckRetention() {
+  IO io;
+  Gateway g(io);
+  Config slow = config();
+  slow.phy.sf = 12;
+  g.configure(slow);
+  const uint64_t session = 0x8877665544332211ULL;
+  g.nodes[0].current.nonce = session;
+  const uint32_t ackAirMs = (airtimeUs(slow.phy, 41) + 999) / 1000;
+  g.scheduler.charge(1000, ackAirMs);
+  CHECK(g.scheduler.nextTx > 1000 + 60000);
+  CHECK(receive(g, frame(slow, 0, Telemetry, 1, session), 0, 2000) == Reject::None);
+  CHECK(g.scheduler.depth == 1);
+  TxJob lateAck;
+  CHECK(!g.nextTx(2000 + 60001, lateAck));
+  CHECK(g.scheduler.depth == 1);
+  CHECK(g.nextTx(g.scheduler.nextTx, lateAck) &&
+        lateAck.frame.type == Ack && lateAck.frame.sequence == 1);
+}
+void slowPhySessionChallenge() {
+  IO io;
+  Gateway g(io);
+  Config slow = config();
+  slow.phy.sf = 12;
+  CHECK(validConfig(slow));
+  g.configure(slow);
+  const uint64_t session = 0x1122334455667788ULL;
+  CHECK(receive(g, frame(slow, 0, Hello, 1, session), 0, 1000) == Reject::None);
+  TxJob ack;
+  CHECK(g.nextTx(1000, ack) && ack.frame.type == Ack);
+  const uint32_t ackAirMs = (airtimeUs(slow.phy, 41) + 999) / 1000;
+  CHECK(ackAirMs > 1200);
+  g.transmitted(ack, true, 1000, ackAirMs);
+  CHECK(io.reservations.size() == 1);
+  auto reservation = io.reservations.back();
+  g.sequenceReady(0, reservation.token, true, 37, 1001);
+  CHECK(g.nodes[0].pending.state == RequestState::Queued);
+  CHECK(g.scheduler.nextTx > 1000 + 120000);
+  CHECK(g.nodes[0].pending.deadline > g.scheduler.nextTx);
+  g.tick(1000 + 120001);
+  CHECK(g.nodes[0].pending.state == RequestState::Queued);
+  TxJob poll;
+  CHECK(!g.nextTx(g.scheduler.nextTx - 1, poll));
+  const uint64_t sendAt = g.scheduler.nextTx;
+  CHECK(g.nextTx(sendAt, poll) && poll.frame.type == Poll &&
+        poll.frame.sequence == 37 && poll.frame.session == session);
+  const uint32_t pollAirMs = (airtimeUs(slow.phy, 45) + 999) / 1000;
+  g.transmitted(poll, true, sendAt, pollAirMs);
+  CHECK(g.nodes[0].pending.state == RequestState::Waiting);
+  Frame response = frame(slow, 0, Telemetry, 2, session);
+  p32(response.payload, poll.frame.sequence);
+  CHECK(receive(g, response, 0, sendAt + 1000) == Reject::None);
+  CHECK(g.nodes[0].current.nonce == session);
+}
 void automaticRefresh() {
   RefreshPolicy policy;
   CHECK(!policy.due(0, 1000 + RefreshIntervalMs, 1000, true));
@@ -756,6 +810,8 @@ int main(int argc, char **argv) {
   ackQueueReserve();
   automaticRefresh();
   channelAccess();
+  slowPhySessionChallenge();
+  slowPhyAckRetention();
   fourNodePtmp();
   retainedLastValidReading();
   std::cout << "PASS " << checks << " production-core regression assertions\n";
