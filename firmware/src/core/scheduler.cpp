@@ -25,6 +25,15 @@ uint64_t Scheduler::protectDutyQueue(uint64_t now, const Phy &phy) {
       job.expires = expiry;
   return expiry;
 }
+uint64_t Scheduler::queuedPollExpiry(uint8_t node, uint32_t seq, uint64_t session,
+                                     uint64_t now) const {
+  for (const auto &job : jobs)
+    if (job.used && job.frame.type == Poll && job.node == node &&
+        job.frame.sequence == seq && job.frame.session == session &&
+        job.expires > now)
+      return job.expires;
+  return 0;
+}
 bool Scheduler::enqueue(const TxJob &job) {
   if (job.frame.type == Ack)
     for (auto &x : jobs)
