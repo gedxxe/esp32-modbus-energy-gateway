@@ -73,6 +73,7 @@ class Gateway {
   int archiveOwner = -1;
   Reject reject(Reject r);
   bool ack(uint8_t i, const Frame &f, uint64_t now);
+  void retainDutyQueue(uint64_t now);
   bool request(uint8_t i, uint64_t session, uint8_t mode, uint32_t day, bool challenge,
                uint64_t now);
 
