@@ -631,6 +631,126 @@ void channelAccess() {
   g.nodes[0].pending.state = RequestState::Unavailable;
   CHECK(!g.nextTx(again + channelBackoffMs(78, 3), j));
 }
+void pairingAckDelayedBeyondCandidateTTL() {
+  IO io;
+  Gateway g(io);
+  Config c = config();
+  c.phy.sf = 12;
+  g.configure(c);
+  const uint64_t session = 0x123456789abcdef0ULL;
+  const uint32_t ackAir = (airtimeUs(c.phy, 41) + 999) / 1000;
+  g.scheduler.charge(1000, ackAir);
+  CHECK(g.scheduler.nextTx > 120000);
+  CHECK(receive(g, frame(c, 0, Hello, 1, session), 0, 2000) == Reject::None);
+  CHECK(g.nodes[0].candidate.nonce == session);
+  // An ACK still queued must preserve the candidate, even past the old TTL.
+  g.tick(2000 + 120001);
+  CHECK(g.nodes[0].candidate.nonce == session);
+  TxJob ack;
+  const uint64_t sendAt = g.scheduler.nextTx;
+  CHECK(g.nextTx(sendAt, ack) && ack.frame.type == Ack &&
+        ack.frame.payload[0] == Hello);
+  CHECK(g.nodes[0].lastChallenge == sendAt);
+  g.tick(sendAt + 1); // ACK is now in flight, not in scheduler queue.
+  CHECK(g.nodes[0].candidate.nonce == session);
+  g.transmitted(ack, true, sendAt + ackAir, ackAir);
+  CHECK(io.reservations.size() == 1 && io.reservations[0].session == session);
+  auto reserved = io.reservations.back();
+  g.sequenceReady(0, reserved.token, true, 91, sendAt + ackAir + 1);
+  CHECK(g.nodes[0].pending.state == RequestState::Queued);
+  const uint64_t pollAt = g.scheduler.nextTx;
+  TxJob poll;
+  CHECK(g.nextTx(pollAt, poll) && poll.frame.type == Poll &&
+        poll.frame.session == session && poll.frame.sequence == 91);
+  g.transmitted(poll, true, pollAt + 1, ackAir);
+  Frame telemetry = frame(c, 0, Telemetry, 2, session);
+  p32(telemetry.payload, 91);
+  CHECK(receive(g, telemetry, 0, pollAt + ackAir + 10) == Reject::None);
+  CHECK(g.nodes[0].current.nonce == session);
+}
+void archiveCadFailureReleasesOwner() {
+  for (bool expiredRetry : {true, false}) {
+    IO io;
+    Gateway g(io);
+    g.configure(config());
+    g.nodes[0].current.nonce = 1111;
+    g.nodes[1].current.nonce = 2222;
+    CHECK(g.poll(0, 1, 20000, 1000));
+    auto reservation = io.reservations.back();
+    g.sequenceReady(0, reservation.token, true, 67, 1000);
+    TxJob poll;
+    CHECK(g.nextTx(1500, poll) && poll.frame.type == Poll);
+    if (!expiredRetry) {
+      // Reserve ACK slots so POLL requeue hits the reserved capacity limit.
+      for (unsigned i = 0; i < TxCapacity - TxAckReserve; ++i) {
+        TxJob ack;
+        ack.node = 1;
+        ack.frame = acknowledge(frame(g.config, 1, Telemetry, 100 + i, 2222));
+        ack.ready = 1000;
+        ack.expires = 200000;
+        CHECK(g.scheduler.enqueue(ack));
+      }
+    }
+    const uint64_t at = expiredRetry ? poll.expires - 1 : 2000;
+    CHECK(!g.deferChannelBusy(poll, at, 0));
+    CHECK(g.nodes[0].pending.state ==
+          (expiredRetry ? RequestState::Unavailable : RequestState::Error));
+    // Old implementation retained archiveOwner=0 and blocked all other nodes.
+    CHECK(g.poll(1, 1, 20000, at + 1));
+  }
+}
+void validatedArchiveCompletionTimeout() {
+  IO io;
+  Gateway g(io);
+  g.configure(config());
+  uint64_t now = establish(g, io, 0, 700, 1000);
+  CHECK(g.poll(0, 1, 20000, now));
+  const auto reservation = io.reservations.back();
+  g.sequenceReady(0, reservation.token, true, 78, now);
+  TxJob poll;
+  now = std::max(now, g.scheduler.nextTx) + 500;
+  CHECK(g.nextTx(now, poll) && poll.frame.type == Poll);
+  g.transmitted(poll, true, now, 90);
+  uint8_t record[446];
+  makeRecord(record);
+  for (unsigned off : {0u, 100u, 200u, 300u, 400u})
+    CHECK(receive(g, fragment(g.config, 0, 3 + off / 100, 700, 78, record, off),
+                  0, now + 100 + off / 100) == Reject::None);
+  CHECK(g.nodes[0].pending.state == RequestState::Validated);
+  const uint64_t deadline = g.nodes[0].pending.deadline;
+  CHECK(deadline > now);
+  g.tick(deadline);
+  CHECK(g.nodes[0].pending.state == RequestState::Validated);
+  g.tick(deadline + 1);
+  CHECK(g.nodes[0].pending.state == RequestState::Unavailable);
+  // A lost storage-completion notification must not soft-lock later requests.
+  CHECK(g.poll(0, 1, 20000, deadline + 2));
+  // A stale completion for the previous request must not finish the newer one.
+  g.durable(0, 700, 78, true);
+  CHECK(g.nodes[0].pending.state == RequestState::Reserving);
+}
+void challengeReservationBackoff() {
+  IO io;
+  io.full = true;
+  Gateway g(io);
+  g.configure(config());
+  const uint64_t session = 2026001;
+  CHECK(receive(g, frame(g.config, 0, Hello, 1, session), 0, 1000) ==
+        Reject::None);
+  TxJob ack;
+  CHECK(g.nextTx(1000, ack));
+  g.transmitted(ack, true, 1000, 88);
+  CHECK(io.reservations.empty());
+  CHECK(g.nodes[0].pending.state == RequestState::Error);
+  const uint32_t failed = g.counters.queueDrops;
+  for (uint64_t t = 1001; t < 10000; t += 5)
+    g.tick(t);
+  CHECK(g.counters.queueDrops == failed);
+  io.full = false;
+  g.tick(11000);
+  CHECK(io.reservations.size() == 1);
+  CHECK(g.nodes[0].pending.state == RequestState::Reserving);
+}
 void slowPhyAckRetention() {
   IO io;
   Gateway g(io);
@@ -944,6 +1064,10 @@ int main(int argc, char **argv) {
   automaticRefresh();
   channelAccess();
   slowPhySessionChallenge();
+  pairingAckDelayedBeyondCandidateTTL();
+  archiveCadFailureReleasesOwner();
+  validatedArchiveCompletionTimeout();
+  challengeReservationBackoff();
   slowPhyAckRetention();
   slowPhyFourNodeBacklog();
   expiredAckNeverRevives();

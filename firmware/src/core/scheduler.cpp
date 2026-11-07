@@ -34,6 +34,13 @@ uint64_t Scheduler::queuedPollExpiry(uint8_t node, uint32_t seq, uint64_t sessio
       return job.expires;
   return 0;
 }
+bool Scheduler::queuedHelloAck(uint8_t node, uint64_t session, uint64_t now) const {
+  for (const auto &job : jobs)
+    if (job.used && job.frame.type == Ack && job.frame.payload[0] == Hello &&
+        job.node == node && job.frame.session == session && job.expires > now)
+      return true;
+  return false;
+}
 bool Scheduler::enqueue(const TxJob &job) {
   if (job.frame.type == Ack)
     for (auto &x : jobs)

@@ -45,6 +45,9 @@ struct NodeState {
   uint64_t lastValidReceived = 0;
   uint64_t received = 0, lastChallenge = 0, confirmed = 0;
   uint64_t lastPacketReceived = 0;
+  // RAM-only backoff for a failed challenge reservation; prevents a 5 ms
+  // retry storm against NVS or a full storage queue.
+  uint64_t challengeRetryAfter = 0;
   uint32_t accepted = 0, duplicates = 0;
   uint32_t lastSequence = 0;
   uint8_t lastType = 0;
