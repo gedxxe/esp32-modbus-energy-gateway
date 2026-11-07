@@ -75,6 +75,12 @@ void Gateway::configure(const Config &c) {
     nodes[i] = NodeState{};
   config = c;
 }
+void Gateway::retainDutyQueue(uint64_t now) {
+  const uint64_t expiry = scheduler.protectDutyQueue(now, config.phy);
+  for (auto &node : nodes)
+    if (node.pending.state == RequestState::Queued && node.pending.deadline < expiry)
+      node.pending.deadline = expiry;
+}
 bool Gateway::ack(uint8_t i, const Frame &f, uint64_t now) {
   TxJob j;
   j.node = i;
@@ -87,7 +93,10 @@ bool Gateway::ack(uint8_t i, const Frame &f, uint64_t now) {
   const uint64_t dutyExpiry = scheduler.nextTx + 30000;
   j.expires = dutyExpiry > minimumExpiry ? dutyExpiry : minimumExpiry;
   j.revision = config.revision;
-  return scheduler.enqueue(j);
+  if (!scheduler.enqueue(j))
+    return false;
+  retainDutyQueue(now);
+  return true;
 }
 bool Gateway::request(uint8_t i, uint64_t sess, uint8_t mode, uint32_t day, bool challenge,
                       uint64_t now) {
@@ -167,7 +176,8 @@ void Gateway::sequenceReady(uint8_t i, uint32_t t, bool ok, uint32_t seq, uint64
     counters.queueDrops++;
     if (archiveOwner == i)
       archiveOwner = -1;
-  }
+  } else
+    retainDutyQueue(now);
 }
 Reject Gateway::receive(const uint8_t *wire, size_t size, uint64_t now, float rssi, float snr) {
   counters.rx++;
@@ -346,6 +356,7 @@ bool Gateway::deferChannelBusy(const TxJob &job, uint64_t now, uint32_t entropy)
 }
 void Gateway::transmitted(const TxJob &j, bool ok, uint64_t now, uint32_t airMs) {
   scheduler.charge(now, airMs);
+  retainDutyQueue(now);
   if (j.revision != config.revision)
     return;
   NodeState &n = nodes[j.node];
