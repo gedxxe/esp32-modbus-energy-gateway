@@ -650,6 +650,31 @@ void slowPhyAckRetention() {
   CHECK(g.nextTx(g.scheduler.nextTx, lateAck) &&
         lateAck.frame.type == Ack && lateAck.frame.sequence == 1);
 }
+void expiredAckNeverRevives() {
+  Scheduler scheduler;
+  auto c = config();
+  TxJob old;
+  old.node = 0;
+  old.frame = acknowledge(frame(c, 0, Telemetry, 7, 333));
+  old.ready = 1000;
+  old.expires = 2000;
+  CHECK(scheduler.enqueue(old));
+  // Bursty traffic must not extend an already-expired authenticated ACK.
+  scheduler.protectDutyQueue(2001, c.phy);
+  TxJob out;
+  CHECK(!scheduler.pop(2001, out));
+  CHECK(scheduler.expired == 1);
+  // Same frame received as a retry after the old queued copy expired:
+  // insert a fresh ACK instead of coalescing with the dead copy.
+  Scheduler replacement;
+  CHECK(replacement.enqueue(old));
+  TxJob fresh = old;
+  fresh.ready = 2001;
+  fresh.expires = 60000;
+  CHECK(replacement.enqueue(fresh));
+  CHECK(replacement.pop(2001, out) && out.frame.type == Ack &&
+        out.frame.sequence == 7);
+}
 void slowPhyFourNodeBacklog() {
   Config c = config();
   c.phy.sf = 12;
@@ -900,6 +925,7 @@ int main(int argc, char **argv) {
   slowPhySessionChallenge();
   slowPhyAckRetention();
   slowPhyFourNodeBacklog();
+  expiredAckNeverRevives();
   fourNodePtmp();
   retainedLastValidReading();
   std::cout << "PASS " << checks << " production-core regression assertions\n";
