@@ -76,7 +76,7 @@ void Gateway::configure(const Config &c) {
   config = c;
 }
 void Gateway::retainDutyQueue(uint64_t now) {
-  const uint64_t expiry = scheduler.protectDutyQueue(now, config.phy);
+  scheduler.protectDutyQueue(now, config.phy);
   for (unsigned i = 0; i < InventoryCapacity; ++i) {
     Pending &pending = nodes[i].pending;
     if (pending.state != RequestState::Queued)
