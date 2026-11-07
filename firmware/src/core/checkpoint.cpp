@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "checkpoint.h"
+#include "meter_profiles.h"
 #include <cfloat>
 namespace gw {
 namespace {
@@ -11,10 +12,10 @@ expected(const Point &x) { // Historical engineering validation only; live kWh i
     return double(x.raw) * .01 * double(x.ptNum) / x.ptDen * x.ct;
   if (x.profile == 2)
     return double(x.raw) * .1;
-  if (x.profile == 3 || x.profile == 4) {
+  if (meter_profile::floatEnergy(x.profile)) {
     float f;
     memcpy(&f, &x.raw, 4);
-    return !(x.raw & 0x80000000u) && std::isfinite(f) ? double(f) * (x.profile == 4 ? .001 : 1)
+    return !(x.raw & 0x80000000u) && std::isfinite(f) ? double(f) * (x.profile == meter_profile::Apm ? .001 : 1)
                                                       : NAN;
   }
   return NAN;
@@ -56,11 +57,11 @@ bool decodeRecord(const uint8_t *p, size_t n, Record &out) {
     x.generation = u32(q + 34);
     x.profile = q[38];
     x.meterId = u16(q + 40);
-    if (x.profile >= 6 || !x.slave || x.slave > 247 || !x.baud || x.baud > 1000000 ||
+    if (!meter_profile::valid(x.profile) || !x.slave || x.slave > 247 || !x.baud || x.baud > 1000000 ||
         (x.parity != 'N' && x.parity != 'E' && x.parity != 'O') || x.direction > 1 || !x.ptNum ||
         x.ptNum > 9999 || !x.ptDen || x.ptDen > 9999 || !x.ct || x.ct > 9999 ||
         (x.profile != 0 && x.ptDen != 1) ||
-        (x.profile >= 2 && x.profile <= 4 && (x.ptNum != 1 || x.ptDen != 1 || x.ct != 1)))
+        (meter_profile::unityRatio(x.profile) && (x.ptNum != 1 || x.ptDen != 1 || x.ct != 1)))
       return false;
     uint64_t target = uint64_t(r.day) * 86400 + CaptureMinutes[i] * 60 - 25200;
     double e = expected(x);
