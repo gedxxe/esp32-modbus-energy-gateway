@@ -12,7 +12,7 @@ uint32_t airtimeUs(const Phy &p, size_t n) {
 uint64_t Scheduler::protectDutyQueue(uint64_t now, const Phy &phy) {
   size_t pendingAcks = 0;
   for (const auto &job : jobs)
-    if (job.used && job.frame.type == Ack)
+    if (job.used && job.frame.type == Ack && job.expires > now)
       ++pendingAcks;
   // ACKs take precedence over queued POLLs. Every outstanding ACK may
   // consume another 1%-paced TX slot (SF12/BW125: >200 seconds each).
@@ -21,7 +21,7 @@ uint64_t Scheduler::protectDutyQueue(uint64_t now, const Phy &phy) {
   const uint64_t expiry = firstAllowed + pendingAcks * quietMs + 30000;
   for (auto &job : jobs)
     if (job.used && (job.frame.type == Ack || job.frame.type == Poll) &&
-        job.expires < expiry)
+        job.expires > now && job.expires < expiry)
       job.expires = expiry;
   return expiry;
 }
@@ -31,6 +31,12 @@ bool Scheduler::enqueue(const TxJob &job) {
       if (x.used && x.frame.type == Ack && x.node == job.node &&
           x.frame.session == job.frame.session && x.frame.sequence == job.frame.sequence &&
           x.frame.payload[0] == job.frame.payload[0]) {
+        // A late retry must not coalesce into an already expired ACK.
+        if (x.expires <= job.ready) {
+          x = job;
+          x.used = true;
+          return true;
+        }
         coalesced++;
         return true;
       }
