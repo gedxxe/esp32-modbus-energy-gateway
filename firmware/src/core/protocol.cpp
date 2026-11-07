@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "protocol.h"
+#include "meter_profiles.h"
 namespace gw {
 const char *reason(Reject r) {
   static const char *const names[] = {
@@ -38,7 +39,7 @@ bool validPayload(const Frame &f) {
     return f.length == 1 &&
            (f.payload[0] == Hello || f.payload[0] == Telemetry || f.payload[0] == Checkpoint);
   case Telemetry: {
-    if (f.length != 32 || (f.payload[12] & ~31) || f.payload[13] >= 6)
+    if (f.length != 32 || (f.payload[12] & ~31) || !meter_profile::valid(f.payload[13]))
       return false;
     if ((f.payload[12] & 2) &&
         (u32(f.payload + 4) < 1704067200u || uint64_t(u32(f.payload + 4)) + 25200 > 4102444799u))
