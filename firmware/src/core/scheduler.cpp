@@ -9,6 +9,22 @@ uint32_t airtimeUs(const Phy &p, size_t n) {
       8 + std::fmax(0., std::ceil((8. * n - 4 * p.sf + 28 + 16) / (4. * (p.sf - 2 * de))) * p.cr);
   return uint32_t(std::ceil((p.preamble + 4.25 + payload) * symbol * 1e6));
 }
+uint64_t Scheduler::protectDutyQueue(uint64_t now, const Phy &phy) {
+  size_t pendingAcks = 0;
+  for (const auto &job : jobs)
+    if (job.used && job.frame.type == Ack)
+      ++pendingAcks;
+  // ACKs take precedence over queued POLLs. Every outstanding ACK may
+  // consume another 1%-paced TX slot (SF12/BW125: >200 seconds each).
+  const uint64_t quietMs = uint64_t((airtimeUs(phy, 41) + 999) / 1000) * 100;
+  const uint64_t firstAllowed = nextTx > now ? nextTx : now;
+  const uint64_t expiry = firstAllowed + pendingAcks * quietMs + 30000;
+  for (auto &job : jobs)
+    if (job.used && (job.frame.type == Ack || job.frame.type == Poll) &&
+        job.expires < expiry)
+      job.expires = expiry;
+  return expiry;
+}
 bool Scheduler::enqueue(const TxJob &job) {
   if (job.frame.type == Ack)
     for (auto &x : jobs)
