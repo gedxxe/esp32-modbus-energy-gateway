@@ -650,6 +650,27 @@ void slowPhyAckRetention() {
   CHECK(g.nextTx(g.scheduler.nextTx, lateAck) &&
         lateAck.frame.type == Ack && lateAck.frame.sequence == 1);
 }
+void expiredQueuedPollNotRevived() {
+  IO io;
+  Gateway g(io);
+  g.configure(config());
+  const uint64_t session = 333;
+  g.nodes[0].current.nonce = session;
+  CHECK(g.poll(0, 0, 0, 1000));
+  auto reservation = io.reservations.back();
+  g.sequenceReady(0, reservation.token, true, 77, 1000);
+  const uint64_t expiredAt = g.nodes[0].pending.deadline;
+  CHECK(expiredAt > 1000);
+  // This new valid telemetry creates an ACK, but must not resurrect a
+  // previously expired POLL queue entry or its matching request state.
+  CHECK(receive(g, frame(g.config, 0, Telemetry, 2, session), 0,
+                expiredAt + 1) == Reject::None);
+  CHECK(g.nodes[0].pending.deadline == expiredAt);
+  g.tick(expiredAt + 1);
+  CHECK(g.nodes[0].pending.state == RequestState::Unavailable);
+  TxJob next;
+  CHECK(g.nextTx(expiredAt + 1, next) && next.frame.type == Ack);
+}
 void expiredAckNeverRevives() {
   Scheduler scheduler;
   auto c = config();
@@ -926,6 +947,7 @@ int main(int argc, char **argv) {
   slowPhyAckRetention();
   slowPhyFourNodeBacklog();
   expiredAckNeverRevives();
+  expiredQueuedPollNotRevived();
   fourNodePtmp();
   retainedLastValidReading();
   std::cout << "PASS " << checks << " production-core regression assertions\n";
