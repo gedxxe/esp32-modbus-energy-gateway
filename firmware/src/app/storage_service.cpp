@@ -112,7 +112,8 @@ void storageTask(void *) {
         else if (job.kind == 2)
           done.ok = fsMounted && archives.save(job.network, job.node, job.session, job.correlation,
                                                job.bytes, bootId, job.received);
-        xQueueSend(completionQ, &done, pdMS_TO_TICKS(100));
+        if (xQueueSend(completionQ, &done, pdMS_TO_TICKS(100)) != pdTRUE)
+          logEvent("Storage completion queue full; pending request will timeout");
       }
       wipe(&job, sizeof(job));
       publish();

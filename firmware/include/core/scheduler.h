@@ -30,6 +30,8 @@ public:
   // An expired or already-popped POLL must never be resurrected in node state.
   uint64_t queuedPollExpiry(uint8_t node, uint32_t sequence, uint64_t session,
                             uint64_t now) const;
+  // Keep a candidate pairing while a legitimate HELLO ACK is still queued.
+  bool queuedHelloAck(uint8_t node, uint64_t session, uint64_t now) const;
   bool pop(uint64_t now, TxJob &out);
   void charge(uint64_t now, uint32_t airtimeMs) {
     nextTx = now + uint64_t(airtimeMs) * 100;

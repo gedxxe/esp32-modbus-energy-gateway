@@ -304,6 +304,9 @@ Reject Gateway::receive(const uint8_t *wire, size_t size, uint64_t now, float rs
     } else if (fr == FragmentResult::Complete) {
       counters.validated++;
       p.state = RequestState::Validated;
+      // A storage completion can be lost if its bounded queue is full.
+      // Never leave a validated request indefinitely blocking further POLLs.
+      p.deadline = now + 60000;
       if (!io.archive(index, f.network, f.source, f.session, p.correlation, assembly.bytes, now)) {
         p.state = RequestState::Error;
         counters.storageErrors++;
@@ -335,6 +338,12 @@ bool Gateway::nextTx(uint64_t now, TxJob &job) {
           p.session != job.frame.session)
         continue; // Ignore canceled or timed-out downlinks, never send stale POLLs.
     }
+    if (job.frame.type == Ack && job.frame.payload[0] == Hello &&
+        nodes[job.node].candidate.nonce == job.frame.session) {
+      // Starting the HELLO ACK resets the candidate grace window. The
+      // scheduler queue no longer contains this job after pop().
+      nodes[job.node].lastChallenge = now;
+    }
     return true;
   }
   return false;
@@ -352,11 +361,19 @@ bool Gateway::deferChannelBusy(const TxJob &job, uint64_t now, uint32_t entropy)
   if (retry.ready >= retry.expires) {
     p.state = RequestState::Unavailable;
     ++counters.timeouts;
+    if (archiveOwner == job.node) {
+      archiveOwner = -1;
+      assembly.active = false;
+    }
     return false;
   }
   if (!scheduler.enqueue(retry)) {
     p.state = RequestState::Error;
     ++counters.queueDrops;
+    if (archiveOwner == job.node) {
+      archiveOwner = -1;
+      assembly.active = false;
+    }
     return false;
   }
   ++cadDeferred;
@@ -385,8 +402,9 @@ void Gateway::transmitted(const TxJob &j, bool ok, uint64_t now, uint32_t airMs)
     if (j.frame.payload[0] == Hello && n.candidate.nonce == j.frame.session) {
       n.helloAcked = true;
       if (n.pending.state != RequestState::Reserving && n.pending.state != RequestState::Queued &&
-          n.pending.state != RequestState::Waiting && n.pending.state != RequestState::Validated)
-        request(j.node, j.frame.session, 0, 0, true, now);
+          n.pending.state != RequestState::Waiting && n.pending.state != RequestState::Validated &&
+          !request(j.node, j.frame.session, 0, 0, true, now))
+        n.challengeRetryAfter = now + 10000;
     }
   } else {
     Pending &p = n.pending;
@@ -421,7 +439,7 @@ void Gateway::tick(uint64_t now) {
     NodeState &n = nodes[i];
     Pending &p = n.pending;
     if ((p.state == RequestState::Reserving || p.state == RequestState::Queued ||
-         p.state == RequestState::Waiting) &&
+         p.state == RequestState::Waiting || p.state == RequestState::Validated) &&
         now > p.deadline) {
       p.state = RequestState::Unavailable;
       counters.timeouts++;
@@ -437,11 +455,17 @@ void Gateway::tick(uint64_t now) {
     if (n.candidate.nonce && p.state != RequestState::Reserving &&
         p.state != RequestState::Queued && p.state != RequestState::Waiting &&
         p.state != RequestState::Validated) {
-      if (now - n.lastChallenge > 120000) {
+      // At slow PHY / full ACK backlog, HELLO can remain scheduled beyond
+      // the nominal 120-second candidate cleanup interval.
+      if (now - n.lastChallenge > 120000 &&
+          !scheduler.queuedHelloAck(uint8_t(i), n.candidate.nonce, now)) {
         n.candidate = Session{};
         n.helloAcked = false;
-      } else if (n.helloAcked)
+        n.challengeRetryAfter = 0;
+      } else if (n.helloAcked && now >= n.challengeRetryAfter) {
+        n.challengeRetryAfter = now + 10000;
         request(i, n.candidate.nonce, 0, 0, true, now);
+      }
     }
   }
   // Scheduled POLLs are deliberately lower priority than radio ACKs,
