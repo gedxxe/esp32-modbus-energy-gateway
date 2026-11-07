@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "core/gateway.h"
 #include "core/radio_lifecycle.h"
+#include "core/meter_profiles.h"
 #include "storage/sequences.h"
 #include "storage/archive.h"
 #include <map>
@@ -224,6 +225,15 @@ void codec() {
   Live l;
   CHECK(decodeLive(f, l) && std::isnan(l.kwh));
   f.payload[12] = 9;
+  for (uint8_t profile : {meter_profile::SchneiderDelivered,
+                          meter_profile::SchneiderDeliveredReceived}) {
+    f.payload[13] = profile;
+    CHECK(validPayload(f));
+    CHECK(decodeLive(f, l) && l.profile == profile);
+  }
+  f.payload[13] = meter_profile::Count;
+  CHECK(!validPayload(f));
+  f.payload[13] = meter_profile::Adl400Verified;
   p32(f.payload + 8, 15001);
   CHECK(!validPayload(f));
   c.nodes[1].id = 2;
@@ -364,6 +374,44 @@ void reassembly() {
   Archives interrupted(m);
   CHECK(!interrupted.load());
   CHECK(interrupted.count == 2);
+}
+void schneiderArchive() {
+  uint8_t record[446];
+  Record decoded;
+  for (uint8_t id : {meter_profile::SchneiderDelivered,
+                     meter_profile::SchneiderDeliveredReceived}) {
+    makeRecord(record);
+    uint8_t *p = record + 24;
+    p[38] = id;
+    p16(p + 20, 1);
+    p16(p + 22, 1);
+    p16(p + 24, 1);
+    float counter = id == meter_profile::SchneiderDelivered ? 210.5f : 412.125f;
+    uint32_t raw;
+    memcpy(&raw, &counter, sizeof(raw));
+    p32(p + 12, raw);
+    const double kwh = double(counter);
+    uint64_t bits;
+    memcpy(&bits, &kwh, sizeof(bits));
+    p64(p + 26, bits);
+    p16(record + 444, crc16(record, 444));
+    CHECK(decodeRecord(record, sizeof(record), decoded));
+    CHECK(decoded.points[0].profile == id && decoded.points[0].energy == kwh);
+    // Schneider data is already primary kWh; PT/CT must remain unity.
+    p16(p + 24, 2);
+    p16(record + 444, crc16(record, 444));
+    CHECK(!decodeRecord(record, sizeof(record), decoded));
+    p16(p + 24, 1);
+    p32(p + 12, 0xbf800000u);  // negative IEEE754 float32
+    p16(record + 444, crc16(record, 444));
+    CHECK(!decodeRecord(record, sizeof(record), decoded));
+    p32(p + 12, 0x7fc00000u);  // NaN IEEE754
+    p16(record + 444, crc16(record, 444));
+    CHECK(!decodeRecord(record, sizeof(record), decoded));
+    p[38] = meter_profile::Count;
+    p16(record + 444, crc16(record, 444));
+    CHECK(!decodeRecord(record, sizeof(record), decoded));
+  }
 }
 void sessions() {
   IO io;
@@ -602,6 +650,44 @@ void slowPhyAckRetention() {
   CHECK(g.nextTx(g.scheduler.nextTx, lateAck) &&
         lateAck.frame.type == Ack && lateAck.frame.sequence == 1);
 }
+void slowPhyFourNodeBacklog() {
+  Config c = config();
+  c.phy.sf = 12;
+  Node fourth = c.nodes[0];
+  fourth.id = 5;
+  fourth.key[0] ^= 0xa5;
+  c.nodes[3] = fourth;
+  CHECK(validConfig(c));
+  IO io;
+  Gateway g(io);
+  g.configure(c);
+  const uint64_t session = 0x9988776655443322ULL;
+  for (unsigned i = 0; i < 4; ++i)
+    g.nodes[i].current.nonce = session + i;
+  const uint32_t air = (airtimeUs(c.phy, 41) + 999) / 1000;
+  g.scheduler.charge(1000, air);
+  CHECK(g.poll(0, 0, 0, 2000));
+  auto reservation = io.reservations.back();
+  g.sequenceReady(0, reservation.token, true, 64, 2000);
+  for (unsigned i = 0; i < 4; ++i)
+    CHECK(receive(g, frame(c, i, Telemetry, 5, session + i), i, 2100 + i) ==
+          Reject::None);
+  CHECK(g.scheduler.depth == 5);
+  uint64_t now = g.scheduler.nextTx;
+  for (unsigned i = 0; i < 4; ++i) {
+    g.tick(now);
+    CHECK(g.nodes[0].pending.state == RequestState::Queued);
+    TxJob a;
+    CHECK(g.nextTx(now, a) && a.frame.type == Ack);
+    g.transmitted(a, true, now, air);
+    now = g.scheduler.nextTx;
+  }
+  CHECK(g.scheduler.depth == 1);
+  TxJob poll;
+  CHECK(g.nextTx(now, poll) && poll.frame.type == Poll &&
+        poll.frame.sequence == 64);
+  CHECK(g.nodes[0].pending.state == RequestState::Queued);
+}
 void slowPhySessionChallenge() {
   IO io;
   Gateway g(io);
@@ -805,6 +891,7 @@ int main(int argc, char **argv) {
   codec();
   storage();
   reassembly();
+  schneiderArchive();
   sessions();
   scheduler();
   ackQueueReserve();
@@ -812,6 +899,7 @@ int main(int argc, char **argv) {
   channelAccess();
   slowPhySessionChallenge();
   slowPhyAckRetention();
+  slowPhyFourNodeBacklog();
   fourNodePtmp();
   retainedLastValidReading();
   std::cout << "PASS " << checks << " production-core regression assertions\n";
