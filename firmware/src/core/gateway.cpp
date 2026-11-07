@@ -77,9 +77,17 @@ void Gateway::configure(const Config &c) {
 }
 void Gateway::retainDutyQueue(uint64_t now) {
   const uint64_t expiry = scheduler.protectDutyQueue(now, config.phy);
-  for (auto &node : nodes)
-    if (node.pending.state == RequestState::Queued && node.pending.deadline < expiry)
-      node.pending.deadline = expiry;
+  for (unsigned i = 0; i < InventoryCapacity; ++i) {
+    Pending &pending = nodes[i].pending;
+    if (pending.state != RequestState::Queued)
+      continue;
+    // Only an unexpired, still-enqueued POLL may extend its request state.
+    // Otherwise leave the original deadline for tick() to retire it.
+    uint64_t queued = scheduler.queuedPollExpiry(uint8_t(i), pending.correlation,
+                                                 pending.session, now);
+    if (queued && pending.deadline < queued)
+      pending.deadline = queued;
+  }
 }
 bool Gateway::ack(uint8_t i, const Frame &f, uint64_t now) {
   TxJob j;
