@@ -3,15 +3,15 @@
 ![C3](assets/badges/board.svg) ![LoRa](assets/badges/protocol.svg) ![RadioLib](assets/badges/radiolib.svg)
 
 
-# Commissioning and recovery
+# Gateway setup and recovery
 
 <a href="assets/wiring-c3.svg"><img src="assets/wiring-c3.svg" width="100%" alt="ESP32-C3 and SX1262 wiring" /></a>
 
 <details open><summary><b>Build and provisioning checklist</b></summary>
 
-This guide is an acceptance procedure, **not evidence that hardware testing has happened**. Current RF status is in WORK_STATUS.md. Start with one node, then three. Keep a copy of node/gateway configurations outside the device in the installation credential record; do not paste pairing keys into support logs.
+These are setup and test instructions; the physical tests have not been recorded as completed. See [WORK_STATUS.md](../WORK_STATUS.md). Test one node first, then multiple nodes. Keep configuration IDs and keys in secure local records, not in shared logs.
 
-## Build and first provisioning
+## Build and first-time setup
 
 Use Python 3, PlatformIO Core 6.1.19, Node.js 22 and npm. Open `firmware/` in VS Code; pinned versions are in `firmware/platformio.ini` and `dashboard/package-lock.json`. The reference uses a 4 MB ESP32-C3-DevKitM-1. Commands below are **host terminal INPUT**, from the gateway root unless stated otherwise:
 
@@ -83,8 +83,8 @@ Read diagnostics in order: initialization/SPI → RF observations → authentica
 
 - **Inventory edit/disable/delete:** save/apply clears sessions and queued work for reconfirmation. Disabled/unknown nodes are rejected. Historical archive source identities remain unchanged. Changing a node address requires physically/local-configuring the node, then updating inventory with the intended key. No v1 remote ID setter exists.
 - **Config bank damage:** a valid alternate bank can recover old settings. Review the applied revision and node keys locally. If both banks fail validation, edits are blocked. Export recoverable records and preserve a raw flash backup before maintenance.
-- **Sequence bank missing/corrupt or 64-session ledger full:** POLL fails closed. Never erase only the ledger and resume the same node session. Preserve a flash backup and rotate the affected nodes' sessions using their local Pair again/reboot (or reconfigure keys/address locally) **while gateway radio is disabled**. Only after confirming all retained same-session state is retired may a technician deliberately reinitialize gateway config/ledger in a maintenance build/flash procedure. This MVP has no remote reset or automatic ledger-pruning button. A complete flash erase also requires new node sessions, because absence of both installation/config banks cannot distinguish a virgin device from erased state.
-- **Archive mount/CRC failure:** no autoformat, no silent repair, no eviction. Preserve a raw partition backup. Already readable records may be exported. Request affected days from node again after deliberate offline repair/provisioning. A full 64-record store rejects new durable writes; ACK still means packet acceptance only. Export/backup and provision a maintained store deliberately; retention cleanup is outside this MVP.
+- **Sequence bank missing/corrupt or 64-session ledger full:** POLL fails closed. Never erase only the ledger and resume the same node session. Preserve a flash backup and rotate the affected nodes' sessions using their local Pair again/reboot (or reconfigure keys/address locally) **while gateway radio is disabled**. Only after confirming all retained same-session state is retired may a technician deliberately reinitialize gateway config/ledger in a maintenance build/flash procedure. The current firmware has no remote reset or automatic ledger-cleanup button. A complete flash erase also requires new node sessions, because absence of both installation/config banks cannot distinguish a virgin device from erased state.
+- **Archive mount/CRC failure:** no autoformat, no silent repair, no eviction. Preserve a raw partition backup. Already readable records may be exported. Request affected days from node again after deliberate offline repair/provisioning. A full 64-record store rejects new durable writes; ACK still means packet acceptance only. Export/backup and provision a maintained store deliberately; retention cleanup is not implemented.
 - **Power loss after ACK before durable write:** request the day again. The node does not delete checkpoints on ACK. Equal existing day/revision content is idempotent; conflicting immutable content is an error, never automatic merge.
 
 ## Hardware evidence sheet (all pending)
@@ -101,7 +101,7 @@ Read diagnostics in order: initialization/SPI → RF observations → authentica
 
 ## PlatformIO validation / safe release package
 
-Open the repository **root** in VS Code with PlatformIO IDE and select the environment `esp32c3` (board ID `esp32-c3-devkitm-1`). The node project uses `esp32-s3-devkitc-1`; they share the same pinned platform URL, RadioLib and ArduinoJson, not a binary image. Check `docs/PLATFORMIO_VSCODE.md` for VS Code setup and `docs/COLLISION_CONTROL.md` for gateway CAD and half-duplex limitations. `python tools/check_compatibility.py` and `python tools/check_wiring.py` are preflight checks. Once firmware is built, `python -m platformio run --project-dir firmware -e esp32c3 -t buildfs` makes a *local* blank filesystem image, and `python tools/check_flash_layout.py` checks partition offsets; neither action uploads data to a connected device. `python tools/package.py` creates a source + image ZIP **without ELF**, and `--verify` checks its hashes. Do not use the included `littlefs.bin` during a routine update because it overwrites checkpoint archives.
+Open the **`firmware/` folder** in VS Code with PlatformIO IDE and select the environment `esp32c3` (board ID `esp32-c3-devkitm-1`). The node project uses `esp32-s3-devkitc-1`; they share the same pinned platform URL, RadioLib and ArduinoJson, not a binary image. Check `docs/PLATFORMIO_VSCODE.md` for VS Code setup and `docs/COLLISION_CONTROL.md` for gateway CAD and half-duplex limitations. `python tools/check_compatibility.py` and `python tools/check_wiring.py` are preflight checks. Once firmware is built, `python -m platformio run --project-dir firmware -e esp32c3 -t buildfs` makes a *local* blank filesystem image, and `python tools/check_flash_layout.py` checks partition offsets; neither action uploads data to a connected device. `python tools/package.py` creates a source + image ZIP **without ELF**, and `--verify` checks its hashes. Do not use the included `littlefs.bin` during a routine update because it overwrites checkpoint archives.
 
 ## Regional RF compliance gate (Indonesia)
 

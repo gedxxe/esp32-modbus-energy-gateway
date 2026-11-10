@@ -6,7 +6,7 @@
 
 [← README](../README.md) · [PlatformIO](PLATFORMIO_VSCODE.md) · [Collision control](COLLISION_CONTROL.md) · [Flash safety](COMMISSIONING.md)
 
-**The new gateway project root is `firmware/`**, containing `platformio.ini`, `src/`, `include/` and `partitions.csv`. The companion ESP32-S3 node follows the same PlatformIO convention but has a different board. GitHub Actions validates software, not physical RF performance.
+**The new gateway project root is `firmware/`**, containing `platformio.ini`, `src/`, `include/` and `partitions.csv`. The companion ESP32-S3 node follows the same PlatformIO convention but has a different board. GitHub Actions validates software against the revisions selected in CI, not physical RF performance or all newer client commits.
 
 <details open>
 <summary><b>Local reproducibility commands</b></summary>
@@ -38,9 +38,9 @@ For VS Code, open **`firmware/`** and click **PROJECT TASKS → esp32c3 → Buil
 <details>
 <summary><b>Regression coverage and package checks</b></summary>
 
-The native tests compile the **production** gateway codec/HMAC, per-node replay and session validation, archived day reconstruction and CRC, scheduler fairness/ACK reserve, CAD deferral policy, downlink sequence reservations across power cycles, queue capacity and four-node identity separation. The independent public wire vector is cross-checked against Python SHA256. The dashboard tests verify authentication, missing/stale kWh semantics and embedded gzip parity. CI also parses generated SVG images, wiring netlists and PlatformIO package versions.
+The native tests compile the **gateway firmware's** codec/HMAC, per-node replay and session validation, archived day reconstruction and CRC, scheduler fairness/ACK reserve, CAD deferral policy, downlink sequence reservations across power cycles, queue capacity and four-node identity separation. The independent public wire vector is cross-checked against Python SHA256. The dashboard tests verify authentication, missing/stale kWh semantics and embedded gzip parity. CI also parses generated SVG images, wiring netlists and PlatformIO package versions.
 
-Production firmware is compiled for **`esp32-c3-devkitm-1`** using pinned pioarduino **55.03.311**, RadioLib **7.8.1**, ArduinoJson **7.3.1**. After the build, the actual partition/image map and source+flash ZIP SHA256 are checked. The ZIP intentionally excludes ELF debugging data. See [CI workflow](../.github/workflows/ci.yml) and [GitHub Actions](https://github.com/gedxxe/esp32-modbus-energy-gateway/actions) for the **exact commit's** results.
+The current gateway firmware is compiled for **`esp32-c3-devkitm-1`** using pinned pioarduino **55.03.311**, RadioLib **7.8.1**, ArduinoJson **7.3.1**. After the build, the actual partition/image map and source+flash ZIP SHA256 are checked. The ZIP intentionally excludes ELF debugging data. See [CI workflow](../.github/workflows/ci.yml) and [GitHub Actions](https://github.com/gedxxe/esp32-modbus-energy-gateway/actions) for the **exact commit's** results.
 
 </details>
 
@@ -50,3 +50,7 @@ Production firmware is compiled for **`esp32-c3-devkitm-1`** using pinned pioard
 **Still awaiting actual radios:** ESP32-C3/ESP32-S3 electrical supply and antenna checks, RF switch and oscillator confirmation, four-node PTMP throughput under real interference, CAD outcomes, gateway ACK latency, archive durability after sudden power loss, Modbus readings at real meters, and installation-range evidence with walls. Software-only tests must not be cited as physical collision-free or industrial-grade acceptance.
 
 </details>
+
+## Client revision checked
+
+The gateway workflow checks out client `a0e48ba9c1756e655318168d01ffaed10c151ec7` and historical `737cfff590c0cbea33895df17c3e3ffc06449e15`. As of 2026-11-10 the inspected client `main` HEAD is `ade92292bf945a92c297b1542b944b7ed3cd7ee2`. The successful gateway CI run does not verify this newer client revision.

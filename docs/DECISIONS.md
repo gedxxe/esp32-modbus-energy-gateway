@@ -10,7 +10,7 @@ ESP32-C3 supersedes the initial brief's C6 target by explicit user correction. U
 
 ## D002 — Protocol and evidence
 
-Use the unmodified node **main** source at 737cfff590c0cbea33895df17c3e3ffc06449e15 (3.5.0) as the current protocol reference; keep the earlier 3.4.3 vector hashes as historical provenance. Validate production codec against its public vector and source behavior. Software tests and RF commissioning are separate acceptance stages.
+At the time of the initial review, the node reference was `737cfff590c0cbea33895df17c3e3ffc06449e15` (firmware 3.5.0). It is a historical compatibility baseline, not the latest node `main`. Keep the public v1 test vector unchanged and test new client revisions separately. Software checks do not replace physical radio tests.
 
 ## D003 — Local UI
 
@@ -47,3 +47,7 @@ The ESP32-C3 project root is `firmware/`, not the Git repository root. PlatformI
 ## D011 — Same v1 protocol, dual-endpoint CAD
 
 A separately reviewed ESP32-S3 node branch adds nonblocking SX1262 CAD and randomized backoff before uplinks. The gateway already performs CAD before discretionary POLLs, preserves downlink sequence identity across deferrals, and reserves TX queue slots for ACKs. We keep Energy Station v1 framing and 915 MHz software defaults unchanged. CAD cannot eliminate hidden-terminal collisions or provide deterministic slots without a new joint time-synchronization protocol.
+
+## Baseline note — 2026-11-10
+
+The gateway CI currently pins node `a0e48ba9c1756e655318168d01ffaed10c151ec7`, while the inspected client `main` is `ade92292bf945a92c297b1542b944b7ed3cd7ee2`. The current gateway remains an ESP32-C3 with a local Wi-Fi AP. Future Heltec ESP32-S3 gateway support or a Wi-Fi/backend uplink requires a separate implementation and tests; neither is part of these historical decisions.
