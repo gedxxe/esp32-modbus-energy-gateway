@@ -7,7 +7,7 @@
 
 ## Audited baseline
 
-Inspected current read-only [ESP32-S3 client main](https://github.com/gedxxe/esp32-modbus-energy) at **a0e48ba9c1756e655318168d01ffaed10c151ec7** (2026-11-06), firmware **3.5.0**, and Energy Station radio protocol **v1**. Its radio worker already performs nonblocking CAD before uplinks. The gateway keeps the same wire contract; firmware version and protocol version are independent. CI also retains **737cfff590c0cbea33895df17c3e3ffc06449e15** as an older, read-only regression baseline. [New audit](LORA_PEER_AUDIT_20261106.md).
+The gateway CI-pinned client reference is [ESP32-S3 node](https://github.com/gedxxe/esp32-modbus-energy/tree/a0e48ba9c1756e655318168d01ffaed10c151ec7) at **`a0e48ba9c1756e655318168d01ffaed10c151ec7`** (inspected 2026-11-06), firmware **3.5.0**, Energy Station protocol **v1**. CI also checks the earlier `737cfff590c0cbea33895df17c3e3ffc06449e15` reference. The inspected client `main` is now **`ade92292bf945a92c297b1542b944b7ed3cd7ee2`** (2026-11-10); gateway CI does not currently test that newer commit. The newer client header retains the v1 framing constants, but complete compatibility still requires regression testing. [Prior audit](LORA_PEER_AUDIT_20261106.md).
 
 The implementation was cross-checked against upstream `docs/LORA_PROTOCOL.md`, `firmware/include/lora_protocol.h`, `firmware/src/lora_service.cpp`, `firmware/include/checkpoint_log.h` and the public interoperability vector. `docs/reference-files.json` still retains hashes from the earlier 3.5.0 baseline for reproducibility and is not presented as an updated hash manifest. The wire layout and field meanings used by the gateway remain the protocol v1 contract.
 
@@ -46,7 +46,7 @@ See `PROTOCOL_LIMITATIONS.md` for source reproductions and possible coordinated 
 
 ## PlatformIO and package compatibility matrix
 
-The audited current node at SHA `a0e48ba9c1756e655318168d01ffaed10c151ec7` uses the **ESP32-S3 DevKitC** environment while this gateway uses **ESP32-C3 DevKitM-1**. Both projects pin the same pioarduino `55.03.311`, RadioLib `7.8.1` and ArduinoJson `7.3.1`; the gateway does not need the node's OLED/RTC libraries. The gateway `firmware/platformio.ini` uses standard `src/` and `include/` directories, exactly as the node project does. The current pinned reference and checks are recorded in [upstream-package-lock.json](upstream-package-lock.json) and can be reproduced with `python tools/check_compatibility.py`. The current node's CAD update preserves LoRa wire v1; firmware version `3.5.0` must not be confused with protocol version `1`.
+The CI-pinned node at SHA `a0e48ba9c1756e655318168d01ffaed10c151ec7` uses the **ESP32-S3 DevKitC** environment while this gateway uses **ESP32-C3 DevKitM-1**. Both projects pin the same pioarduino `55.03.311`, RadioLib `7.8.1` and ArduinoJson `7.3.1`; the gateway does not need the node's OLED/RTC libraries. The gateway `firmware/platformio.ini` uses standard `src/` and `include/` directories, exactly as the node project does. The current pinned reference and checks are recorded in [upstream-package-lock.json](upstream-package-lock.json) and can be reproduced with `python tools/check_compatibility.py`. The current node's CAD update preserves LoRa wire v1; firmware version `3.5.0` must not be confused with protocol version `1`.
 
 <details><summary><b>Independent node/gateway project files</b></summary>
 
